@@ -91,8 +91,21 @@ CREATE TABLE
         user_id UUID NOT NULL REFERENCES users (id),
         note TEXT,
         delivery_date TIMESTAMP NOT NULL,
-        payment_status TEXT NOT NULL,
-        order_status TEXT NOT NULL,
+        subtotal NUMERIC(10, 2) NOT NULL CHECK (subtotal >= 0),
+        shipping_cost NUMERIC(10, 2) NOT NULL,
+        tax_amount NUMERIC(10, 2) NOT NULL,
+        total NUMERIC(10, 2) NOT NULL,
+        payment_status TEXT NOT NULL CHECK (payment_status IN ('pending', 'partial', 'paid')),
+        order_status TEXT NOT NULL CHECK (
+            order_status IN (
+                'pending',
+                'confirmed',
+                'preparing',
+                'ready',
+                'completed',
+                'cancelled'
+            )
+        ),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
