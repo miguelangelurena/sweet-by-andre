@@ -37,7 +37,7 @@ CREATE TABLE
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         name TEXT NOT NULL,
         description TEXT,
-        price NUMERIC(10, 2) NOT NULL,
+        price NUMERIC(10, 2) NOT NULL CHECK (price >= 0),
         stock INTEGER NOT NULL CHECK (stock >= 0),
         category_id UUID NOT NULL REFERENCES categories (id),
         is_available BOOLEAN NOT NULL DEFAULT TRUE,
@@ -77,7 +77,7 @@ CREATE TABLE
         cart_id UUID NOT NULL REFERENCES cart (id),
         product_id UUID NOT NULL REFERENCES products (id),
         quantity INTEGER NOT NULL CHECK (quantity > 0),
-        price_at_added NUMERIC(10, 2) NOT NULL,
+        price_at_added NUMERIC(10, 2) NOT NULL CHECK (price_at_added >= 0),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (cart_id, product_id)
     );
@@ -89,12 +89,21 @@ CREATE TABLE
     orders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         user_id UUID NOT NULL REFERENCES users (id),
+        -- Address snapshot
+        shipping_name TEXT NOT NULL,
+        shipping_street TEXT NOT NULL,
+        shipping_street_number TEXT NOT NULL,
+        shipping_unit TEXT,
+        shipping_city TEXT NOT NULL,
+        shipping_state TEXT NOT NULL,
+        shipping_zip_code TEXT NOT NULL,
+        delivery_instructions TEXT,
         note TEXT,
         delivery_date TIMESTAMP NOT NULL,
         subtotal NUMERIC(10, 2) NOT NULL CHECK (subtotal >= 0),
-        shipping_cost NUMERIC(10, 2) NOT NULL,
-        tax_amount NUMERIC(10, 2) NOT NULL,
-        total NUMERIC(10, 2) NOT NULL,
+        shipping_cost NUMERIC(10, 2) NOT NULL CHECK (shipping_cost >= 0),
+        tax_amount NUMERIC(10, 2) NOT NULL CHECK (tax_amount >= 0),
+        total NUMERIC(10, 2) NOT NULL CHECK (total >= 0),
         payment_status TEXT NOT NULL CHECK (payment_status IN ('pending', 'partial', 'paid')),
         order_status TEXT NOT NULL CHECK (
             order_status IN (
@@ -118,7 +127,38 @@ CREATE TABLE
         order_id UUID NOT NULL REFERENCES orders (id),
         product_id UUID NOT NULL REFERENCES products (id),
         quantity INTEGER NOT NULL CHECK (quantity > 0),
-        unit_price NUMERIC(10, 2) NOT NULL,
+        unit_price NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE (order_id, product_id)
+    );
+
+-- =========================
+-- PAYMENTS
+-- =========================
+CREATE TABLE
+    payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        order_id UUID NOT NULL REFERENCES orders (id),
+        stripe_payment_id TEXT,
+        amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+        status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed')),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+-- =========================
+-- ADDRESSES
+-- =========================
+CREATE TABLE
+    addresses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        user_id UUID NOT NULL REFERENCES users (id),
+        label TEXT,
+        street TEXT NOT NULL,
+        street_number TEXT NOT NULL,
+        unit TEXT,
+        city TEXT NOT NULL,
+        state TEXT NOT NULL,
+        zip_code TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
