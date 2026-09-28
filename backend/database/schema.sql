@@ -11,6 +11,7 @@ CREATE TABLE
         email TEXT UNIQUE NOT NULL,
         phone TEXT NOT NULL,
         password_hash TEXT,
+        role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         deleted_at TIMESTAMP
