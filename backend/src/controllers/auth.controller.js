@@ -190,3 +190,23 @@ export const getMe = async (req, res) => {
         });
     }
 };
+
+export const logout = (req, res) => {
+    req.session.destroy((error) => {
+        if (error) {
+            console.error(error);
+
+            return res.status(500).json({
+                status: "ERROR",
+                message: "Could not log out"
+            });
+        }
+
+        res.clearCookie("connect.sid");
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Logout successful"
+        });
+    });
+};
