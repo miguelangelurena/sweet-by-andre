@@ -5,6 +5,8 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.routes.js";
 import authRouter from "./routes/auth.routes.js";
+import categoryRouter from "./routes/category.routes.js";
+import productRouter from "./routes/products.routes.js";
 
 const app = express();
 
@@ -30,5 +32,7 @@ app.use(
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
+app.use("/api", categoryRouter);
+app.use("/api", productRouter);
 
 export default app;
