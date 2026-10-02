@@ -4,7 +4,8 @@ import {
     getProducts,
     getProductById,
     updateProductAvailability,
-    createProduct
+    createProduct,
+    updateProduct
 } from "../controllers/product.controllers.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -21,6 +22,13 @@ router.post(
     requireAuth,
     requireAdmin,
     createProduct
+);
+
+router.patch(
+    "/products/:id",
+    requireAuth,
+    requireAdmin,
+    updateProduct
 );
 
 router.patch(
