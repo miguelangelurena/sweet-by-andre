@@ -10,10 +10,12 @@ export const requireAuth = async (req, res, next) => {
         }
 
         const existingUser = await pool.query(
-            `SELECT id
-             FROM users
-             WHERE id = $1
-             AND deleted_at IS NULL`,
+            `
+    SELECT id, role
+    FROM users
+    WHERE id = $1
+    AND deleted_at IS NULL
+    `,
             [req.session.userId]
         );
 

@@ -157,3 +157,86 @@ export const updateProductAvailability = async (req, res) => {
         });
     }
 };
+
+export const createProduct = async (req, res) => {
+    try {
+        const {
+            name,
+            description,
+            price,
+            stock,
+            category_id
+        } = req.body;
+
+        if (typeof name !== "string" || typeof description !== "string") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "name and description must be strings"
+            });
+        }
+
+        if (typeof price !== "number" || price <= 0) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "price must be a number greater than 0"
+            });
+        }
+
+        if (!Number.isInteger(stock) || stock < 0) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "stock must be an integer greater than or equal to 0"
+            });
+        }
+
+        if (typeof category_id !== "string") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "category_id must be a string"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            INSERT INTO products (
+                name,
+                description,
+                price,
+                stock,
+                category_id
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING
+                id,
+                name,
+                description,
+                price,
+                stock,
+                category_id,
+                is_available,
+                created_at
+            `,
+            [
+                name,
+                description,
+                price,
+                stock,
+                category_id
+            ]
+        );
+
+        return res.status(201).json({
+            status: "GOOD",
+            message: "Product created successfully",
+            product: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    }
+};
