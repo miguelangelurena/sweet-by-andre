@@ -409,7 +409,7 @@ export const updateProduct = async (req, res) => {
             if (categoryResult.rows.length === 0) {
                 return res.status(404).json({
                     status: "ERROR",
-                    message: "Category not found or inactive"
+                    message: "category not found or inactive"
                 });
             }
 
@@ -424,7 +424,7 @@ export const updateProduct = async (req, res) => {
         if (updates.length === 0) {
             return res.status(400).json({
                 status: "ERROR",
-                message: "No fields provided for update"
+                message: "no fields provided for update"
             });
         }
 
@@ -454,13 +454,13 @@ export const updateProduct = async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({
                 status: "ERROR",
-                message: "Product not found"
+                message: "product not found"
             });
         }
 
         return res.status(200).json({
             status: "GOOD",
-            message: "Product updated successfully",
+            message: "product updated successfully",
             product: result.rows[0]
         });
 
@@ -469,7 +469,7 @@ export const updateProduct = async (req, res) => {
 
         return res.status(500).json({
             status: "ERROR",
-            message: "Internal server error"
+            message: "internal server error"
         });
     }
 };

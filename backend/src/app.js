@@ -34,5 +34,6 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api", categoryRouter);
 app.use("/api", productRouter);
+app.use("/api", categoryRouter);
 
 export default app;
