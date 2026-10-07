@@ -35,5 +35,6 @@ app.use("/api/auth", authRouter);
 app.use("/api", categoryRouter);
 app.use("/api", productRouter);
 app.use("/api", categoryRouter);
+app.use("/api", productRouter);
 
 export default app;

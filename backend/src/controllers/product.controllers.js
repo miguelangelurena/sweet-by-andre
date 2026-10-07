@@ -473,3 +473,99 @@ export const updateProduct = async (req, res) => {
         });
     }
 };
+
+export const updateProductImage = async (req, res) => {
+    try {
+        const { id, imageId } = req.params;
+        const { image_url, display_order } = req.body;
+
+        const updates = [];
+        const values = [];
+
+        if (image_url !== undefined) {
+            if (
+                typeof image_url !== "string" ||
+                image_url.trim() === ""
+            ) {
+                return res.status(400).json({
+                    status: "ERROR",
+                    message: "image_url must be a valid string"
+                });
+            }
+
+            updates.push(`image_url = $${values.length + 1}`);
+            values.push(image_url.trim());
+        }
+
+        if (display_order !== undefined) {
+            if (
+                !Number.isInteger(display_order) ||
+                display_order < 1
+            ) {
+                return res.status(400).json({
+                    status: "ERROR",
+                    message: "display_order must be an integer greater than 0"
+                });
+            }
+
+            updates.push(`display_order = $${values.length + 1}`);
+            values.push(display_order);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "No fields provided for update"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            UPDATE product_images
+            SET ${updates.join(", ")},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $${values.length + 1}
+              AND product_id = $${values.length + 2}
+            RETURNING
+                id,
+                image_url,
+                display_order,
+                product_id,
+                updated_at;
+            `,
+            [
+                ...values,
+                imageId,
+                id
+            ]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product image not found"
+            });
+        }
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Image updated successfully",
+            image: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Display order already exists for this product"
+            });
+        }
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    }
+};
