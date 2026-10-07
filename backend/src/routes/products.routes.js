@@ -7,7 +7,9 @@ import {
     createProduct,
     updateProduct,
     addProductImage,
-    getProductImages
+    getProductImages,
+    updateProductImage,
+    deleteProductImage
 } from "../controllers/product.controllers.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -50,6 +52,20 @@ router.post(
 router.get(
     "/products/:id/images",
     getProductImages
+);
+
+router.delete(
+    "/products/:id/images/:imageId",
+    requireAuth,
+    requireAdmin,
+    deleteProductImage
+);
+
+router.patch(
+    "/products/:id/images/:imageId",
+    requireAuth,
+    requireAdmin,
+    updateProductImage
 );
 
 export default router;

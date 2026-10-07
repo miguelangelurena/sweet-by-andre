@@ -294,6 +294,134 @@ export const createProduct = async (req, res) => {
     }
 };
 
+export const addProductImage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { image_url, display_order } = req.body;
+
+        if (
+            typeof image_url !== "string" ||
+            image_url.trim() === ""
+        ) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "image_url must be a valid string"
+            });
+        }
+
+        if (
+            !Number.isInteger(display_order) ||
+            display_order < 1
+        ) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "display_order must be an integer greater than zero"
+            });
+        }
+
+        const existingProduct = await pool.query(
+            `
+            SELECT id
+            FROM products
+            WHERE id = $1;
+            `,
+            [id]
+        );
+
+        if (existingProduct.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product not found"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            INSERT INTO product_images (
+                display_order,
+                image_url,
+                product_id
+            )
+            VALUES ($1, $2, $3)
+            RETURNING
+                id,
+                image_url,
+                display_order,
+                product_id;
+            `,
+            [display_order, image_url.trim(), id]
+        );
+
+        return res.status(201).json({
+            status: "GOOD",
+            message: "Product image added successfully",
+            product_image: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Display order already exists for this product"
+            });
+        }
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    }
+};
+
+export const getProductImages = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const existingProduct = await pool.query(
+            `
+            SELECT id
+            FROM products
+            WHERE id = $1;
+            `,
+            [id]
+        );
+
+        if (existingProduct.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product not found"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                image_url,
+                display_order
+            FROM product_images
+            WHERE product_id = $1
+            ORDER BY display_order;
+            `,
+            [id]
+        );
+
+        return res.status(200).json({
+            status: "GOOD",
+            images: result.rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    }
+};
 
 export const updateProduct = async (req, res) => {
     try {
@@ -474,6 +602,10 @@ export const updateProduct = async (req, res) => {
     }
 };
 
+// -------------------------
+// UPDATE PRODUCT IMAGES
+// -----------------------
+
 export const updateProductImage = async (req, res) => {
     try {
         const { id, imageId } = req.params;
@@ -522,16 +654,14 @@ export const updateProductImage = async (req, res) => {
         const result = await pool.query(
             `
             UPDATE product_images
-            SET ${updates.join(", ")},
-                updated_at = CURRENT_TIMESTAMP
+            SET ${updates.join(", ")}
             WHERE id = $${values.length + 1}
               AND product_id = $${values.length + 2}
             RETURNING
                 id,
                 image_url,
                 display_order,
-                product_id,
-                updated_at;
+                product_id
             `,
             [
                 ...values,
@@ -562,6 +692,47 @@ export const updateProductImage = async (req, res) => {
                 message: "Display order already exists for this product"
             });
         }
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    }
+};
+
+export const deleteProductImage = async (req, res) => {
+    try {
+        const { id, imageId } = req.params;
+
+        const result = await pool.query(
+            `
+            DELETE FROM product_images
+            WHERE id = $1
+              AND product_id = $2
+            RETURNING
+                id,
+                image_url,
+                display_order,
+                product_id;
+            `,
+            [imageId, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product image not found"
+            });
+        }
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Product image deleted successfully",
+            product_image: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
 
         return res.status(500).json({
             status: "ERROR",
