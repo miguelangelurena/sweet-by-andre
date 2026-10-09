@@ -268,3 +268,48 @@ export const addCartItem = async (req, res) => {
         });
     }
 };
+
+export const getCart = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const result = await pool.query(
+            `
+SELECT c.id AS cart_id,
+       c.created_at AS cart_created_at,
+       c.expires_at,
+       ci.id AS cart_item_id,
+       ci.product_id,
+       p.name AS product_name,
+       ci.quantity,
+       ci.price_at_added AS unit_price,
+       ci.quantity * ci.price_at_added AS subtotal
+FROM cart c
+LEFT JOIN cart_items ci ON ci.cart_id = c.id
+LEFT JOIN products p ON p.id = ci.product_id
+WHERE c.user_id = $1;
+        `, [userId]
+        )
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Cart not found"
+            })
+        }
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Cart retrieved successfully",
+            cart: result.rows
+        })
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        })
+    }
+}
