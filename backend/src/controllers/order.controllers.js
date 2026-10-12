@@ -1,0 +1,240 @@
+import { pool } from "../config/database.js";
+
+export const createOrder = async (req, res) => {
+    const userId = req.user.id;
+
+    const {
+        shipping_name,
+        shipping_street,
+        shipping_street_number,
+        shipping_unit,
+        shipping_city,
+        shipping_state,
+        shipping_zip_code,
+        delivery_instructions,
+        note,
+        delivery_date
+    } = req.body;
+
+    const requiredFields = {
+        shipping_name,
+        shipping_street,
+        shipping_street_number,
+        shipping_city,
+        shipping_state,
+        shipping_zip_code,
+        delivery_date
+    };
+
+    for (const [field, value] of Object.entries(requiredFields)) {
+        if (typeof value !== "string" || value.trim() === "") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: `${field} is required`
+            });
+        }
+    }
+
+    const parsedDeliveryDate = new Date(delivery_date);
+
+    if (Number.isNaN(parsedDeliveryDate.getTime())) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "Invalid delivery_date"
+        });
+    }
+
+    const minimumDeliveryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    if (parsedDeliveryDate < minimumDeliveryDate) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "Delivery must be scheduled at least 48 hours in advance"
+        });
+    }
+
+    let client;
+
+    try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+
+        const cartResult = await client.query(
+            `
+            SELECT id
+            FROM cart
+            WHERE user_id = $1
+            FOR UPDATE;
+`,
+            [userId]
+        );
+
+        if (cartResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Cart not found"
+            });
+        }
+
+        const cartId = cartResult.rows[0].id;
+
+        const itemsResult = await client.query(
+            `
+SELECT
+ci.product_id,
+    ci.quantity,
+    p.name,
+    p.price,
+    p.stock,
+    p.is_available
+            FROM cart_items ci
+            JOIN products p ON p.id = ci.product_id
+            WHERE ci.cart_id = $1
+            FOR UPDATE OF p;
+`,
+            [cartId]
+        );
+
+        const items = itemsResult.rows;
+
+        if (items.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                status: "ERROR",
+                message: "Cannot create an order with an empty cart"
+            });
+        }
+
+        for (const item of items) {
+            if (!item.is_available) {
+                await client.query("ROLLBACK");
+
+                return res.status(409).json({
+                    status: "ERROR",
+                    message: `${item.name} is not available`
+                });
+            }
+
+            if (item.quantity > item.stock) {
+                await client.query("ROLLBACK");
+
+                return res.status(409).json({
+                    status: "ERROR",
+                    message: `Insufficient stock for ${item.name}`
+                });
+            }
+        }
+
+        const subtotal = items.reduce(
+            (sum, item) =>
+                sum + Number(item.price) * item.quantity,
+            0
+        );
+
+        const shippingCost = 0;
+        const taxAmount = 0;
+        const total = subtotal + shippingCost + taxAmount;
+
+        const orderResult = await client.query(
+            `
+            INSERT INTO orders(
+    user_id,
+    shipping_name,
+    shipping_street,
+    shipping_street_number,
+    shipping_unit,
+    shipping_city,
+    shipping_state,
+    shipping_zip_code,
+    delivery_instructions,
+    note,
+    delivery_date,
+    subtotal,
+    shipping_cost,
+    tax_amount,
+    total,
+    payment_status,
+    order_status
+)
+VALUES(
+    $1, $2, $3, $4, $5, $6, $7, $8, $9,
+    $10, $11, $12, $13, $14, $15, 'pending', 'pending'
+)
+RETURNING *;
+`,
+            [
+                userId,
+                shipping_name.trim(),
+                shipping_street.trim(),
+                shipping_street_number.trim(),
+                shipping_unit?.trim() || null,
+                shipping_city.trim(),
+                shipping_state.trim(),
+                shipping_zip_code.trim(),
+                delivery_instructions?.trim() || null,
+                note?.trim() || null,
+                parsedDeliveryDate,
+                subtotal,
+                shippingCost,
+                taxAmount,
+                total
+            ]
+        );
+
+        const order = orderResult.rows[0];
+
+        for (const item of items) {
+            await client.query(
+                `
+                INSERT INTO order_items(
+    order_id,
+    product_id,
+    quantity,
+    unit_price
+)
+VALUES($1, $2, $3, $4);
+`,
+                [
+                    order.id,
+                    item.product_id,
+                    item.quantity,
+                    item.price
+                ]
+            );
+        }
+
+        await client.query(
+            "DELETE FROM cart_items WHERE cart_id = $1;",
+            [cartId]
+        );
+
+        await client.query("COMMIT");
+
+        return res.status(201).json({
+            status: "GOOD",
+            message: "Order created successfully. Payment is pending.",
+            order
+        });
+
+    } catch (error) {
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback failed:", rollbackError);
+            }
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    } finally {
+        client?.release();
+    }
+};

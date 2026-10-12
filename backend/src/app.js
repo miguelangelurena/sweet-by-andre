@@ -8,6 +8,7 @@ import authRouter from "./routes/auth.routes.js";
 import categoryRouter from "./routes/category.routes.js";
 import productRouter from "./routes/products.routes.js";
 import cartRouter from "./routes/cart.routes.js";
+import orderRouter from "./routes/orders.routes.js";
 
 const app = express();
 
@@ -38,5 +39,6 @@ app.use("/api", productRouter);
 app.use("/api", categoryRouter);
 app.use("/api", productRouter);
 app.use("/api", cartRouter);
+app.use("/api", orderRouter);
 
 export default app;
