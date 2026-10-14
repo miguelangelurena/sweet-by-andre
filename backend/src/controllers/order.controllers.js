@@ -118,25 +118,26 @@ ci.product_id,
                 });
             }
 
-            if (item.quantity > item.stock) {
-                await client.query("ROLLBACK");
-
-                return res.status(409).json({
-                    status: "ERROR",
-                    message: `Insufficient stock for ${item.name}`
-                });
-            }
         }
 
-        const subtotal = items.reduce(
-            (sum, item) =>
-                sum + Number(item.price) * item.quantity,
+        const subtotalInCents = items.reduce(
+            (sum, item) => {
+                const priceInCents = Math.round(Number(item.price) * 100);
+                return sum + priceInCents * item.quantity;
+            },
             0
         );
 
-        const shippingCost = 0;
-        const taxAmount = 0;
-        const total = subtotal + shippingCost + taxAmount;
+        const shippingCostInCents = 0;
+        const taxAmountInCents = 0;
+
+        const totalInCents =
+            subtotalInCents + shippingCostInCents + taxAmountInCents;
+
+        const subtotal = subtotalInCents / 100;
+        const shippingCost = shippingCostInCents / 100;
+        const taxAmount = taxAmountInCents / 100;
+        const total = totalInCents / 100;
 
         const orderResult = await client.query(
             `

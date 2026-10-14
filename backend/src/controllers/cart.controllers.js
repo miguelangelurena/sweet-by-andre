@@ -1,33 +1,40 @@
 import { pool } from "../config/database.js";
 
+
+
 export const createCart = async (req, res) => {
+    let client;
+
     try {
-        const existingCartResult = await pool.query(
+        client = await pool.connect();
+        await client.query("BEGIN");
+
+        const existingCartResult = await client.query(
             `
             SELECT
                 id,
                 user_id,
                 created_at,
-                expires_at
+                expires_at,
+                expires_at <= CURRENT_TIMESTAMP AS is_expired
             FROM cart
-            WHERE user_id = $1;
+            WHERE user_id = $1
+            FOR UPDATE;
             `,
             [req.user.id]
         );
 
         if (existingCartResult.rows.length === 0) {
-            const newCartResult = await pool.query(
+            const newCartResult = await client.query(
                 `
                 INSERT INTO cart (user_id)
                 VALUES ($1)
-                RETURNING
-                    id,
-                    user_id,
-                    created_at,
-                    expires_at;
+                RETURNING id, user_id, created_at, expires_at;
                 `,
                 [req.user.id]
             );
+
+            await client.query("COMMIT");
 
             return res.status(201).json({
                 status: "GOOD",
@@ -37,9 +44,10 @@ export const createCart = async (req, res) => {
         }
 
         const existingCart = existingCartResult.rows[0];
-        const now = new Date();
 
-        if (new Date(existingCart.expires_at) > now) {
+        if (!existingCart.is_expired) {
+            await client.query("COMMIT");
+
             return res.status(200).json({
                 status: "GOOD",
                 message: "Active cart already exists",
@@ -47,41 +55,55 @@ export const createCart = async (req, res) => {
             });
         }
 
-        await pool.query(
+        await client.query(
             `
-            DELETE FROM cart
-            WHERE id = $1;
+            DELETE FROM cart_items
+            WHERE cart_id = $1;
             `,
             [existingCart.id]
         );
 
-        const newCartResult = await pool.query(
+        const renewedCartResult = await client.query(
             `
-            INSERT INTO cart (user_id)
-            VALUES ($1)
-            RETURNING
-                id,
-                user_id,
-                created_at,
-                expires_at;
+            UPDATE cart
+            SET
+                created_at = CURRENT_TIMESTAMP,
+                expires_at = CURRENT_TIMESTAMP + INTERVAL '2 hours'
+            WHERE id = $1
+            RETURNING id, user_id, created_at, expires_at;
             `,
-            [req.user.id]
+            [existingCart.id]
         );
 
-        return res.status(201).json({
+        await client.query("COMMIT");
+
+        return res.status(200).json({
             status: "GOOD",
-            message: "Expired cart replaced successfully",
-            activeCart: newCartResult.rows[0]
+            message: "Expired cart renewed successfully",
+            cart: renewedCartResult.rows[0]
         });
+
     } catch (error) {
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback failed:", rollbackError);
+            }
+        }
+
         console.error(error);
 
         return res.status(500).json({
             status: "ERROR",
             message: "Internal server error"
         });
+    } finally {
+        client?.release();
     }
 };
+
+
 
 export const addCartItem = async (req, res) => {
     const { product_id, quantity } = req.body;
@@ -124,6 +146,13 @@ export const addCartItem = async (req, res) => {
 
         const cart = cartResult.rows[0];
 
+        if (new Date(cart.expires_at) <= new Date()) {
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Your cart has expired. Please refresh your cart before adding items."
+            });
+        }
+
         const productResult = await pool.query(
             `
     SELECT
@@ -154,13 +183,6 @@ export const addCartItem = async (req, res) => {
             });
         }
 
-        if (product.stock < quantity) {
-            return res.status(409).json({
-                status: "ERROR",
-                message: "Insufficient stock"
-            });
-        }
-
         const existingCartItem = await pool.query(
             `
             SELECT
@@ -176,13 +198,6 @@ export const addCartItem = async (req, res) => {
 
         if (existingCartItem.rows.length > 0) {
             const cartItem = existingCartItem.rows[0];
-
-            if (cartItem.quantity + quantity > product.stock) {
-                return res.status(409).json({
-                    status: "ERROR",
-                    message: "Insufficient stock"
-                });
-            }
 
             const result = await pool.query(
                 `
@@ -241,6 +256,7 @@ export const addCartItem = async (req, res) => {
     }
 };
 
+
 export const getCart = async (req, res) => {
     const userId = req.user.id;
     let client;
@@ -254,7 +270,8 @@ export const getCart = async (req, res) => {
             SELECT
                 id,
                 created_at,
-                expires_at
+                expires_at,
+                expires_at <= CURRENT_TIMESTAMP AS is_expired
             FROM cart
             WHERE user_id = $1
             FOR UPDATE;
@@ -273,20 +290,29 @@ export const getCart = async (req, res) => {
 
         const cart = cartResult.rows[0];
 
+        if (cart.is_expired) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Your cart has expired. Please refresh your cart before placing an order."
+            });
+        }
+
         const itemsResult = await client.query(
             `
-    SELECT
-        ci.id,
-        ci.product_id,
-        p.name AS product_name,
-        ci.quantity,
-        ci.price_at_added AS unit_price,
-        ci.quantity * ci.price_at_added AS subtotal,
-        SUM(ci.quantity * ci.price_at_added) OVER () AS total
-    FROM cart_items ci
-    LEFT JOIN products p ON p.id = ci.product_id
-    WHERE ci.cart_id = $1;
-    `,
+            SELECT
+                ci.id,
+                ci.product_id,
+                p.name AS product_name,
+                ci.quantity,
+                ci.price_at_added AS unit_price,
+                ci.quantity * ci.price_at_added AS subtotal,
+                SUM(ci.quantity * ci.price_at_added) OVER () AS total
+            FROM cart_items ci
+            LEFT JOIN products p ON p.id = ci.product_id
+            WHERE ci.cart_id = $1;
+            `,
             [cart.id]
         );
 
@@ -332,6 +358,7 @@ export const getCart = async (req, res) => {
         client?.release();
     }
 };
+
 
 export const updateCartItem = async (req, res) => {
     const { quantity } = req.body;
@@ -379,13 +406,6 @@ export const updateCartItem = async (req, res) => {
             return res.status(409).json({
                 status: "ERROR",
                 message: "Product not available"
-            })
-        }
-
-        if (quantity > cartItem.stock) {
-            return res.status(409).json({
-                status: "ERROR",
-                message: "Insufficient stock"
             })
         }
 
