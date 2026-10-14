@@ -82,22 +82,47 @@ export const createOrder = async (req, res) => {
 
         const itemsResult = await client.query(
             `
-SELECT
-ci.product_id,
-    ci.quantity,
-    p.name,
-    p.price,
-    p.stock,
-    p.is_available
-            FROM cart_items ci
-            JOIN products p ON p.id = ci.product_id
-            WHERE ci.cart_id = $1
-            FOR UPDATE OF p;
-`,
+    SELECT
+        ci.product_id,
+        ci.quantity,
+        ci.price_at_added,
+        p.name,
+        p.price,
+        p.stock,
+        p.is_available
+    FROM cart_items ci
+    JOIN products p ON p.id = ci.product_id
+    WHERE ci.cart_id = $1
+    FOR UPDATE OF p;
+    `,
             [cartId]
         );
 
         const items = itemsResult.rows;
+
+        const priceChanges = items
+            .filter(item =>
+                Math.round(Number(item.price_at_added) * 100) !==
+                Math.round(Number(item.price) * 100)
+            )
+            .map(item => ({
+                product_id: item.product_id,
+                product_name: item.name,
+                quantity: item.quantity,
+                previous_price: Number(item.price_at_added).toFixed(2),
+                current_price: Number(item.price).toFixed(2)
+            }));
+
+        if (priceChanges.length > 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                status: "ERROR",
+                code: "PRICE_CHANGED",
+                message: "Some product prices have changed. Please review your cart before placing the order.",
+                price_changes: priceChanges
+            });
+        }
 
         if (items.length === 0) {
             await client.query("ROLLBACK");

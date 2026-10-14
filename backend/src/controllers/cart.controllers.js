@@ -301,17 +301,23 @@ export const getCart = async (req, res) => {
 
         const itemsResult = await client.query(
             `
-            SELECT
-                ci.id,
-                ci.product_id,
-                p.name AS product_name,
-                ci.quantity,
-                ci.price_at_added AS unit_price,
-                ci.quantity * ci.price_at_added AS subtotal,
-                SUM(ci.quantity * ci.price_at_added) OVER () AS total
-            FROM cart_items ci
-            LEFT JOIN products p ON p.id = ci.product_id
-            WHERE ci.cart_id = $1;
+
+SELECT
+    ci.id,
+    ci.product_id,
+    p.name AS product_name,
+    ci.quantity,
+    ci.price_at_added AS unit_price,
+    p.price AS current_unit_price,
+    ci.price_at_added <> p.price AS price_changed,
+    ci.quantity * ci.price_at_added AS subtotal,
+    ci.quantity * p.price AS current_subtotal,
+    SUM(ci.quantity * ci.price_at_added) OVER () AS total,
+    SUM(ci.quantity * p.price) OVER () AS current_total
+FROM cart_items ci
+JOIN products p ON p.id = ci.product_id
+WHERE ci.cart_id = $1;
+
             `,
             [cart.id]
         );
@@ -324,7 +330,10 @@ export const getCart = async (req, res) => {
             product_name: item.product_name,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            subtotal: item.subtotal
+            current_unit_price: item.current_unit_price,
+            price_changed: item.price_changed,
+            subtotal: item.subtotal,
+            current_subtotal: item.current_subtotal
         }));
 
         return res.status(200).json({
@@ -335,7 +344,9 @@ export const getCart = async (req, res) => {
                 created_at: cart.created_at,
                 expires_at: cart.expires_at,
                 items,
-                total: itemsResult.rows[0]?.total ?? "0"
+                total: itemsResult.rows[0]?.total ?? "0",
+                current_total: itemsResult.rows[0]?.current_total ?? "0",
+                has_price_changes: items.some(item => item.price_changed)
             }
         });
 
@@ -479,5 +490,112 @@ export const deleteCartItem = async (req, res) => {
             status: "ERROR",
             message: "Internal server error"
         });
+    }
+};
+
+export const acceptCartPriceChanges = async (req, res) => {
+    const userId = req.user.id;
+    let client;
+
+    try {
+        client = await pool.connect();
+        await client.query("BEGIN");
+
+        const cartResult = await client.query(
+            `
+SELECT id, expires_at
+FROM cart
+WHERE user_id = $1
+FOR UPDATE;
+            `,
+            [userId]
+        );
+
+        if (cartResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Cart not found"
+            });
+        }
+
+        const cartId = cartResult.rows[0].id;
+
+        const expiresAt = new Date(cartResult.rows[0].expires_at);
+
+        if (expiresAt <= new Date()) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Your cart has expired. Please refresh your cart before accepting price changes."
+            });
+        }
+
+        const itemsResult = await client.query(
+            `
+            SELECT
+                ci.id,
+                ci.price_at_added,
+                p.id AS product_id,
+                p.name,
+                p.price,
+                p.is_available
+            FROM cart_items ci
+            JOIN products p ON p.id = ci.product_id
+            WHERE ci.cart_id = $1
+            FOR UPDATE OF p;
+            `,
+            [cartId]
+        );
+
+        const unavailableItem = itemsResult.rows.find(
+            item => !item.is_available
+        );
+
+        if (unavailableItem) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                status: "ERROR",
+                message: `${unavailableItem.name} is not available`
+            });
+        }
+
+        await client.query(
+            `
+            UPDATE cart_items ci
+            SET price_at_added = p.price
+            FROM products p
+            WHERE ci.cart_id = $1
+              AND ci.product_id = p.id;
+            `,
+            [cartId]
+        );
+
+        await client.query("COMMIT");
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Current cart prices accepted successfully"
+        });
+    } catch (error) {
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback failed:", rollbackError);
+            }
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Internal server error"
+        });
+    } finally {
+        client?.release();
     }
 };
