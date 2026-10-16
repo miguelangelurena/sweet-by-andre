@@ -23,10 +23,21 @@ export const handleStripeWebhook = async (req, res) => {
         return res.status(400).send("Invalid webhook signature");
     }
 
+    console.log("Stripe webhook received:", {
+        eventId: event.id,
+        eventType: event.type
+    });
+
     try {
         switch (event.type) {
             case "checkout.session.completed": {
                 const session = event.data.object;
+
+                console.log("Checkout session completed:", {
+                    sessionId: session.id,
+                    orderId: session.metadata?.order_id,
+                    paymentStatus: session.payment_status
+                });
 
                 // Only process sessions whose payment is confirmed.
                 if (session.payment_status !== "paid") {
