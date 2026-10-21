@@ -85,12 +85,14 @@ export const handleStripeWebhook = async (req, res) => {
                     // Repeated delivery is safe: applying the same status again
                     // does not create an additional payment or order.
 
+
                     await client.query(
                         `
     UPDATE payments
     SET status = 'succeeded',
         stripe_payment_intent_id = $2
-    WHERE stripe_payment_id = $1;
+    WHERE stripe_payment_id = $1
+      AND status IN ('pending', 'succeeded');
     `,
                         [
                             session.id,
@@ -99,6 +101,7 @@ export const handleStripeWebhook = async (req, res) => {
                                 : session.payment_intent?.id ?? null
                         ]
                     );
+
 
 
 
@@ -143,6 +146,133 @@ export const handleStripeWebhook = async (req, res) => {
                         sessionId: session.id,
                         orderId: result.rows[0].order_id
                     });
+                }
+
+                break;
+            }
+
+
+            case "refund.updated": {
+                const refund = event.data.object;
+
+                const client = await pool.connect();
+
+                try {
+                    await client.query("BEGIN");
+
+                    const requestResult = await client.query(
+                        `
+
+SELECT
+    rr.id,
+    rr.order_id,
+    rr.payment_id,
+    rr.status,
+    p.stripe_payment_intent_id,
+    o.total
+FROM refund_requests rr
+JOIN payments p ON p.id = rr.payment_id
+JOIN orders o ON o.id = rr.order_id
+WHERE rr.stripe_refund_id = $1
+   OR (
+       rr.id::text = $2
+       AND rr.stripe_refund_id IS NULL
+   )
+FOR UPDATE;
+            `,
+                        [
+                            refund.id,
+                            refund.metadata?.refund_request_id ?? ""
+                        ]
+                    );
+
+                    if (requestResult.rowCount === 0) {
+                        await client.query("ROLLBACK");
+                        console.error("Refund request not found:", refund.id);
+                        return res.status(500).send("Refund request not found");
+                    }
+
+                    const refundRequest = requestResult.rows[0];
+
+
+                    const expectedAmount = Math.round(
+                        Number(refundRequest.total) * 100
+                    );
+
+                    const refundPaymentIntent =
+                        typeof refund.payment_intent === "string"
+                            ? refund.payment_intent
+                            : refund.payment_intent?.id;
+
+                    if (
+                        refundPaymentIntent !== refundRequest.stripe_payment_intent_id ||
+                        refund.amount !== expectedAmount ||
+                        refund.currency?.toLowerCase() !== "usd"
+                    ) {
+                        await client.query("ROLLBACK");
+
+                        console.error("Refund validation failed:", refund.id);
+
+                        return res.status(400).send(
+                            "Refund does not match the original payment"
+                        );
+                    }
+
+
+
+                    if (refundRequest.status === "succeeded") {
+                        await client.query("COMMIT");
+                        break;
+                    }
+
+
+                    await client.query(
+                        `
+            UPDATE refund_requests
+            SET stripe_refund_id = $2,
+                status = $3,
+                updated_at = NOW()
+            WHERE id = $1;
+            `,
+                        [
+                            refundRequest.id,
+                            refund.id,
+                            refund.status === "succeeded"
+                                ? "succeeded"
+                                : ["failed", "canceled"].includes(refund.status)
+                                    ? "failed"
+                                    : "processing"
+                        ]
+                    );
+
+                    if (refund.status === "succeeded") {
+                        await client.query(
+                            `
+                UPDATE payments
+                SET status = 'refunded',
+                    stripe_refund_id = $2
+                WHERE id = $1;
+                `,
+                            [refundRequest.payment_id, refund.id]
+                        );
+
+                        await client.query(
+                            `
+                UPDATE orders
+                SET order_status = 'cancelled'
+                WHERE id = $1
+                  AND order_status = 'refund_pending';
+                `,
+                            [refundRequest.order_id]
+                        );
+                    }
+
+                    await client.query("COMMIT");
+                } catch (error) {
+                    await client.query("ROLLBACK");
+                    throw error;
+                } finally {
+                    client.release();
                 }
 
                 break;
