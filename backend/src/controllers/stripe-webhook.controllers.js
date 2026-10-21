@@ -84,28 +84,33 @@ export const handleStripeWebhook = async (req, res) => {
 
                     // Repeated delivery is safe: applying the same status again
                     // does not create an additional payment or order.
-                    await client.query(
-                        `
-                        UPDATE payments
-                        SET status = 'succeeded'
-                        WHERE stripe_payment_id = $1
-                          AND status <> 'succeeded';
-                        `,
-                        [session.id]
-                    );
 
                     await client.query(
                         `
-UPDATE orders
-SET payment_status = 'paid',
-    order_status = CASE
-        WHEN order_status = 'cancelled' THEN 'cancelled'
-        ELSE 'confirmed'
-    END
-WHERE id = $1;
-                        `,
+    UPDATE payments
+    SET status = 'succeeded',
+        stripe_payment_intent_id = $2
+    WHERE stripe_payment_id = $1;
+    `,
+                        [
+                            session.id,
+                            typeof session.payment_intent === "string"
+                                ? session.payment_intent
+                                : session.payment_intent?.id ?? null
+                        ]
+                    );
+
+
+
+                    await client.query(
+                        `
+    UPDATE orders
+    SET payment_status = 'paid'
+    WHERE id = $1;
+    `,
                         [orderId]
                     );
+
 
                     await client.query("COMMIT");
                 } catch (error) {

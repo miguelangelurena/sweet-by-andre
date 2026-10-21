@@ -13,17 +13,24 @@ export const createCheckoutSession = async (req, res) => {
         });
     }
 
+    const client = await pool.connect();
+    let sessionCreated = false;
+
     try {
-        const orderResult = await pool.query(
+        await client.query("BEGIN");
+
+        const orderResult = await client.query(
             `
             SELECT id, total, payment_status, order_status
             FROM orders
-            WHERE id = $1 AND user_id = $2;
+            WHERE id = $1 AND user_id = $2
+            FOR UPDATE;
             `,
             [order_id, userId]
         );
 
         if (orderResult.rows.length === 0) {
+            await client.query("ROLLBACK");
             return res.status(404).json({
                 status: "ERROR",
                 message: "Order not found"
@@ -33,6 +40,7 @@ export const createCheckoutSession = async (req, res) => {
         const order = orderResult.rows[0];
 
         if (order.payment_status === "paid") {
+            await client.query("ROLLBACK");
             return res.status(409).json({
                 status: "ERROR",
                 message: "Order has already been paid"
@@ -40,32 +48,36 @@ export const createCheckoutSession = async (req, res) => {
         }
 
         if (order.order_status === "cancelled") {
+            await client.query("ROLLBACK");
             return res.status(409).json({
                 status: "ERROR",
                 message: "Cannot pay for a cancelled order"
             });
         }
 
-        // Reuse an existing pending Checkout session when possible.
-        const pendingResult = await pool.query(
+        const pendingResult = await client.query(
             `
             SELECT stripe_payment_id
             FROM payments
             WHERE order_id = $1
-              AND status = 'pending';
+              AND status = 'pending'
+              AND stripe_payment_id IS NOT NULL;
             `,
             [order.id]
         );
 
         for (const payment of pendingResult.rows) {
-            const existingSession = await stripe.checkout.sessions.retrieve(
-                payment.stripe_payment_id
-            );
+            const existingSession =
+                await stripe.checkout.sessions.retrieve(
+                    payment.stripe_payment_id
+                );
 
             if (
                 existingSession.status === "open" &&
                 existingSession.url
             ) {
+                await client.query("COMMIT");
+
                 return res.status(200).json({
                     status: "GOOD",
                     message: "Existing Checkout session reused",
@@ -77,6 +89,8 @@ export const createCheckoutSession = async (req, res) => {
                 existingSession.status === "complete" &&
                 existingSession.payment_status === "paid"
             ) {
+                await client.query("ROLLBACK");
+
                 return res.status(409).json({
                     status: "ERROR",
                     message: "Payment completed and is being processed"
@@ -84,7 +98,7 @@ export const createCheckoutSession = async (req, res) => {
             }
 
             if (existingSession.status === "expired") {
-                await pool.query(
+                await client.query(
                     `
                     UPDATE payments
                     SET status = 'failed'
@@ -102,6 +116,8 @@ export const createCheckoutSession = async (req, res) => {
             !Number.isSafeInteger(amountInCents) ||
             amountInCents <= 0
         ) {
+            await client.query("ROLLBACK");
+
             return res.status(400).json({
                 status: "ERROR",
                 message: "Invalid order amount"
@@ -132,7 +148,9 @@ export const createCheckoutSession = async (req, res) => {
                 "http://localhost:3000/payment-cancelled"
         });
 
-        await pool.query(
+        sessionCreated = true;
+
+        await client.query(
             `
             INSERT INTO payments (
                 order_id,
@@ -145,23 +163,31 @@ export const createCheckoutSession = async (req, res) => {
             [order.id, session.id, order.total]
         );
 
+        await client.query("COMMIT");
+
         return res.status(201).json({
             status: "GOOD",
             message: "Checkout session created",
             checkout_url: session.url
         });
-
     } catch (error) {
+        await client.query("ROLLBACK").catch(() => { });
+
         console.error("Stripe Checkout error:", {
             message: error.message,
             type: error.type,
             code: error.code,
-            statusCode: error.statusCode
+            statusCode: error.statusCode,
+            sessionCreated
         });
 
         return res.status(500).json({
             status: "ERROR",
-            message: "Could not create checkout session"
+            message: sessionCreated
+                ? "Checkout session was created, but its payment record could not be confirmed"
+                : "Could not create checkout session"
         });
+    } finally {
+        client.release();
     }
 };

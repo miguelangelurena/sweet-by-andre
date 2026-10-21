@@ -11,6 +11,7 @@ import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/orders.routes.js";
 import paymentRouter from "./routes/payments.routes.js";
 import { handleStripeWebhook } from "./controllers/stripe-webhook.controllers.js";
+import adminOrdersRouter from "./routes/admin-orders.routes.js";
 
 const app = express();
 
@@ -49,5 +50,6 @@ app.use("/api", productRouter);
 app.use("/api", cartRouter);
 app.use("/api", orderRouter);
 app.use("/api", paymentRouter);
+app.use("/api/admin", adminOrdersRouter);
 
 export default app;
