@@ -39,7 +39,7 @@ export default function AdminLogin() {
               Sweet
             </span>
             <span className="mt-1 block text-xs font-semibold tracking-[0.35em] text-[#B76473]">
-              BY ANDRÉ
+              BY ANDRE
             </span>
           </a>
 
