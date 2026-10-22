@@ -29,3 +29,18 @@ export function getProducts() {
 export function getCategories() {
     return apiRequest("/categories");
 }
+
+export function getCurrentUser() {
+    return apiRequest("/auth/me");
+}
+
+export function login(email, password) {
+    return apiRequest("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+    });
+}
+
+export function getAdminProducts() {
+    return apiRequest("/admin/products");
+}

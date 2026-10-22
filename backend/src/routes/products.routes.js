@@ -9,7 +9,8 @@ import {
     addProductImage,
     getProductImages,
     updateProductImage,
-    deleteProductImage
+    deleteProductImage,
+    getAdminProducts
 } from "../controllers/product.controllers.js";
 
 import { uploadProductImage } from "../controllers/product.controllers.js";
@@ -88,6 +89,13 @@ router.post(
     uploadMiddleware,
     handleUploadError,
     uploadProductImage
+);
+
+router.get(
+    "/admin/products",
+    requireAuth,
+    requireAdmin,
+    getAdminProducts
 );
 
 export default router;

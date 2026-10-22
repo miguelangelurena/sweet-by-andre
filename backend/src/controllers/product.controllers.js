@@ -929,3 +929,43 @@ export const uploadProductImage = async (req, res) => {
         });
     }
 };
+
+
+export const getAdminProducts = async (req, res) => {
+    try {
+        const result = await pool.query(`
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.is_available,
+        p.category_id,
+        c.name AS category_name,
+        (
+          SELECT pi.image_url
+          FROM product_images pi
+          WHERE pi.product_id = p.id
+          ORDER BY pi.display_order ASC, pi.id ASC
+          LIMIT 1
+        ) AS image_url
+      FROM products p
+      LEFT JOIN categories c
+        ON c.id = p.category_id
+      ORDER BY p.name ASC;
+    `);
+
+        return res.status(200).json({
+            status: "GOOD",
+            products: result.rows
+        });
+    } catch (error) {
+        console.error("Get admin products error:", error);
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Could not retrieve products"
+        });
+    }
+};
