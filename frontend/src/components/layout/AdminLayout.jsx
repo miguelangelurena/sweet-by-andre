@@ -8,7 +8,7 @@ export default function AdminLayout({ children }) {
               Sweet
             </span>
             <span className="text-xs font-semibold tracking-[0.3em] text-[#B76473]">
-              BY ANDRÉ
+              BY ANDRE
             </span>
           </a>
           <p className="mt-3 text-xs text-[#756B69]">Administration</p>

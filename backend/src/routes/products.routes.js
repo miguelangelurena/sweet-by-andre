@@ -1,3 +1,4 @@
+
 import express from "express";
 
 import {
@@ -10,11 +11,13 @@ import {
     getProductImages,
     updateProductImage,
     deleteProductImage,
-    getAdminProducts
+    getAdminProducts,
+    uploadProductImage,
 } from "../controllers/product.controllers.js";
 
-import { uploadProductImage } from "../controllers/product.controllers.js";
-import { uploadProductImage as uploadMiddleware } from "../middleware/uploadProductImage.js";
+import {
+    uploadProductImage as uploadMiddleware,
+} from "../middleware/uploadProductImage.js";
 
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
@@ -23,9 +26,26 @@ import { handleUploadError } from "../middleware/handleUploadError.js";
 
 const router = express.Router();
 
+// -------------------------
+// PUBLIC PRODUCT ROUTES
+// -------------------------
+
 router.get("/products", getProducts);
 
 router.get("/products/:id", getProductById);
+
+router.get("/products/:id/images", getProductImages);
+
+// -------------------------
+// ADMIN PRODUCT ROUTES
+// -------------------------
+
+router.get(
+    "/admin/products",
+    requireAuth,
+    requireAdmin,
+    getAdminProducts
+);
 
 router.post(
     "/products",
@@ -48,38 +68,15 @@ router.patch(
     updateProductAvailability
 );
 
+// -------------------------
+// ADMIN IMAGE ROUTES
+// -------------------------
+
 router.post(
     "/products/:id/images",
     requireAuth,
     requireAdmin,
     addProductImage
-);
-
-router.get(
-    "/products/:id/images",
-    getProductImages
-);
-
-router.delete(
-    "/products/:id/images/:imageId",
-    requireAuth,
-    requireAdmin,
-    deleteProductImage
-);
-
-router.patch(
-    "/products/:id/images/:imageId",
-    requireAuth,
-    requireAdmin,
-    updateProductImage
-);
-
-router.post(
-    "/products/:id/images/upload",
-    requireAuth,
-    requireAdmin,
-    uploadMiddleware,
-    uploadProductImage
 );
 
 router.post(
@@ -91,11 +88,18 @@ router.post(
     uploadProductImage
 );
 
-router.get(
-    "/admin/products",
+router.patch(
+    "/products/:id/images/:imageId",
     requireAuth,
     requireAdmin,
-    getAdminProducts
+    updateProductImage
+);
+
+router.delete(
+    "/products/:id/images/:imageId",
+    requireAuth,
+    requireAdmin,
+    deleteProductImage
 );
 
 export default router;
