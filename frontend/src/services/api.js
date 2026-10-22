@@ -44,3 +44,50 @@ export function login(email, password) {
 export function getAdminProducts() {
     return apiRequest("/admin/products");
 }
+
+export function createProduct(productData) {
+    return apiRequest("/products", {
+        method: "POST",
+        body: JSON.stringify(productData),
+    });
+}
+
+export async function uploadProductImage(productId, file) {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(
+        `/api/products/${productId}/images/upload`,
+        {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+        }
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message || "Failed to upload product image"
+        );
+    }
+
+    return data;
+}
+
+export function updateProduct(productId, productData) {
+    return apiRequest(`/products/${productId}`, {
+        method: "PATCH",
+        body: JSON.stringify(productData),
+    });
+}
+
+export function updateProductAvailability(productId, isAvailable) {
+    return apiRequest(`/products/${productId}/availability`, {
+        method: "PATCH",
+        body: JSON.stringify({
+            is_available: isAvailable,
+        }),
+    });
+}
