@@ -1,5 +1,6 @@
 import { pool } from "../config/database.js";
 
+
 export const getProducts = async (req, res) => {
     try {
         const result = await pool.query(
@@ -12,7 +13,14 @@ export const getProducts = async (req, res) => {
                 p.stock,
                 p.is_available,
                 c.id AS category_id,
-                c.name AS category_name
+                c.name AS category_name,
+                (
+                    SELECT pi.image_url
+                    FROM product_images pi
+                    WHERE pi.product_id = p.id
+                    ORDER BY pi.display_order ASC, pi.id ASC
+                    LIMIT 1
+                ) AS image_url
             FROM products p
             INNER JOIN categories c
                 ON p.category_id = c.id
@@ -36,6 +44,7 @@ export const getProducts = async (req, res) => {
         });
     }
 };
+
 
 
 export const getProductById = async (req, res) => {
