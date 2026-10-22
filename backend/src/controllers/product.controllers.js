@@ -1,4 +1,9 @@
 import { pool } from "../config/database.js";
+import { fileTypeFromBuffer } from "file-type";
+import {
+    uploadImageToCloudinary,
+    deleteImageFromCloudinary
+} from "../services/cloudinary.service.js";
 
 
 export const getProducts = async (req, res) => {
@@ -709,10 +714,58 @@ export const updateProductImage = async (req, res) => {
     }
 };
 
-export const deleteProductImage = async (req, res) => {
-    try {
-        const { id, imageId } = req.params;
 
+export const deleteProductImage = async (req, res) => {
+    const { id, imageId } = req.params;
+
+    try {
+        // 1. Buscar la imagen antes de eliminarla
+        const imageResult = await pool.query(
+            `
+            SELECT
+                id,
+                image_url,
+                cloudinary_public_id,
+                display_order,
+                product_id
+            FROM product_images
+            WHERE id = $1
+              AND product_id = $2;
+            `,
+            [imageId, id]
+        );
+
+        if (imageResult.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product image not found"
+            });
+        }
+
+        const image = imageResult.rows[0];
+
+        // 2. Eliminar el archivo de Cloudinary, si existe
+        if (image.cloudinary_public_id) {
+            const cloudinaryResult = await deleteImageFromCloudinary(
+                image.cloudinary_public_id
+            );
+
+            if (
+                !["ok", "not found"].includes(cloudinaryResult.result)
+            ) {
+                console.error(
+                    "Cloudinary deletion failed:",
+                    cloudinaryResult
+                );
+
+                return res.status(502).json({
+                    status: "ERROR",
+                    message: "Could not delete image from Cloudinary"
+                });
+            }
+        }
+
+        // 3. Eliminar el registro de PostgreSQL
         const result = await pool.query(
             `
             DELETE FROM product_images
@@ -728,9 +781,9 @@ export const deleteProductImage = async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
+            return res.status(409).json({
                 status: "ERROR",
-                message: "Product image not found"
+                message: "Image record changed during deletion"
             });
         }
 
@@ -741,11 +794,138 @@ export const deleteProductImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Delete product image error:", error);
+
+        if (error.code === "22P02") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "Invalid product or image ID"
+            });
+        }
 
         return res.status(500).json({
             status: "ERROR",
-            message: "Internal server error"
+            message: "Could not delete product image"
+        });
+    }
+};
+
+
+
+export const uploadProductImage = async (req, res) => {
+    const { id: productId } = req.params;
+
+    if (!req.file) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "An image file is required"
+        });
+    }
+
+    let uploadedImage = null;
+
+    try {
+        const detectedType = await fileTypeFromBuffer(req.file.buffer);
+
+        const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        ];
+
+        if (!detectedType || !allowedTypes.includes(detectedType.mime)) {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "Invalid image format"
+            });
+        }
+
+        const productResult = await pool.query(
+            "SELECT id FROM products WHERE id = $1",
+            [productId]
+        );
+
+        if (productResult.rows.length === 0) {
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product not found"
+            });
+        }
+
+        uploadedImage = await uploadImageToCloudinary(
+            req.file.buffer,
+            productId
+        );
+
+        const imageResult = await pool.query(
+            `
+            INSERT INTO product_images (
+                product_id,
+                image_url,
+                cloudinary_public_id,
+                display_order
+            )
+            VALUES (
+                $1,
+                $2,
+                $3,
+                (
+                    SELECT COALESCE(MAX(display_order), 0) + 1
+                    FROM product_images
+                    WHERE product_id = $1
+                )
+            )
+            RETURNING
+                id,
+                product_id,
+                image_url,
+                cloudinary_public_id,
+                display_order
+            `,
+            [
+                productId,
+                uploadedImage.image_url,
+                uploadedImage.public_id
+            ]
+        );
+
+        return res.status(201).json({
+            status: "GOOD",
+            message: "Product image uploaded successfully",
+            image: imageResult.rows[0]
+        });
+
+    } catch (error) {
+        if (uploadedImage?.public_id) {
+            try {
+                await deleteImageFromCloudinary(uploadedImage.public_id);
+            } catch (cleanupError) {
+                console.error(
+                    "Cloudinary cleanup failed:",
+                    cleanupError
+                );
+            }
+        }
+
+        console.error("Upload product image error:", error);
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Image display order conflict"
+            });
+        }
+
+        if (error.code === "22P02") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "Invalid product ID"
+            });
+        }
+
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Could not upload product image"
         });
     }
 };
