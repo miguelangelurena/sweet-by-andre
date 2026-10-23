@@ -620,99 +620,186 @@ export const updateProduct = async (req, res) => {
 // UPDATE PRODUCT IMAGES
 // -----------------------
 
+
 export const updateProductImage = async (req, res) => {
+    const { id, imageId } = req.params;
+    const { display_order } = req.body;
+
+    // Only allow changing the image position.
+    if (
+        !Number.isInteger(display_order) ||
+        display_order < 1
+    ) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "display_order must be a positive integer",
+        });
+    }
+
+    const client = await pool.connect();
+
     try {
-        const { id, imageId } = req.params;
-        const { image_url, display_order } = req.body;
+        await client.query("BEGIN");
 
-        const updates = [];
-        const values = [];
-
-        if (image_url !== undefined) {
-            if (
-                typeof image_url !== "string" ||
-                image_url.trim() === ""
-            ) {
-                return res.status(400).json({
-                    status: "ERROR",
-                    message: "image_url must be a valid string"
-                });
-            }
-
-            updates.push(`image_url = $${values.length + 1}`);
-            values.push(image_url.trim());
-        }
-
-        if (display_order !== undefined) {
-            if (
-                !Number.isInteger(display_order) ||
-                display_order < 1
-            ) {
-                return res.status(400).json({
-                    status: "ERROR",
-                    message: "display_order must be an integer greater than 0"
-                });
-            }
-
-            updates.push(`display_order = $${values.length + 1}`);
-            values.push(display_order);
-        }
-
-        if (updates.length === 0) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "No fields provided for update"
-            });
-        }
-
-        const result = await pool.query(
+        // Serialize image reorder operations for this product.
+        const productResult = await client.query(
             `
-            UPDATE product_images
-            SET ${updates.join(", ")}
-            WHERE id = $${values.length + 1}
-              AND product_id = $${values.length + 2}
-            RETURNING
-                id,
-                image_url,
-                display_order,
-                product_id
-            `,
-            [
-                ...values,
-                imageId,
-                id
-            ]
+      SELECT id
+      FROM products
+      WHERE id = $1
+      FOR UPDATE;
+      `,
+            [id]
         );
 
-        if (result.rows.length === 0) {
+        if (productResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
             return res.status(404).json({
                 status: "ERROR",
-                message: "Product image not found"
+                message: "Product not found",
             });
         }
+
+        // Get the image we want to move.
+        const imageResult = await client.query(
+            `
+      SELECT id, display_order
+      FROM product_images
+      WHERE id = $1
+        AND product_id = $2
+      FOR UPDATE;
+      `,
+            [imageId, id]
+        );
+
+        if (imageResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                status: "ERROR",
+                message: "Product image not found",
+            });
+        }
+
+        const currentOrder = imageResult.rows[0].display_order;
+
+        // Nothing to change.
+        if (currentOrder === display_order) {
+            await client.query("COMMIT");
+
+            return res.status(200).json({
+                status: "GOOD",
+                message: "Image already has this position",
+                image: imageResult.rows[0],
+            });
+        }
+
+        // Find the image currently occupying the target position.
+        const targetResult = await client.query(
+            `
+      SELECT id, display_order
+      FROM product_images
+      WHERE product_id = $1
+        AND display_order = $2
+      FOR UPDATE;
+      `,
+            [id, display_order]
+        );
+
+        // If target position is occupied, swap positions.
+        if (targetResult.rows.length > 0) {
+            const targetImage = targetResult.rows[0];
+
+            // Use a temporary position to avoid UNIQUE conflicts.
+            const temporaryResult = await client.query(
+                `
+        SELECT COALESCE(MAX(display_order), 0) + 1
+          AS temporary_order
+        FROM product_images
+        WHERE product_id = $1;
+        `,
+                [id]
+            );
+
+            const temporaryOrder = Number(
+                temporaryResult.rows[0].temporary_order
+            );
+
+            // Move the selected image to a free position.
+            await client.query(
+                `
+        UPDATE product_images
+        SET display_order = $1
+        WHERE id = $2
+          AND product_id = $3;
+        `,
+                [temporaryOrder, imageId, id]
+            );
+
+            // Move the previous target image to the old position.
+            await client.query(
+                `
+        UPDATE product_images
+        SET display_order = $1
+        WHERE id = $2
+          AND product_id = $3;
+        `,
+                [currentOrder, targetImage.id, id]
+            );
+        }
+
+        // Move selected image to its final position.
+        const updatedResult = await client.query(
+            `
+      UPDATE product_images
+      SET display_order = $1
+      WHERE id = $2
+        AND product_id = $3
+      RETURNING
+        id,
+        image_url,
+        display_order,
+        product_id;
+      `,
+            [display_order, imageId, id]
+        );
+
+        await client.query("COMMIT");
 
         return res.status(200).json({
             status: "GOOD",
-            message: "Image updated successfully",
-            image: result.rows[0]
+            message: "Image position updated successfully",
+            image: updatedResult.rows[0],
         });
-
     } catch (error) {
-        console.error(error);
+        await client.query("ROLLBACK");
+
+        console.error("Update product image error:", error);
 
         if (error.code === "23505") {
             return res.status(409).json({
                 status: "ERROR",
-                message: "Display order already exists for this product"
+                message: "Image position conflict",
+            });
+        }
+
+        if (error.code === "22P02") {
+            return res.status(400).json({
+                status: "ERROR",
+                message: "Invalid product or image ID",
             });
         }
 
         return res.status(500).json({
             status: "ERROR",
-            message: "Internal server error"
+            message: "Could not update product image",
         });
+    } finally {
+        client.release();
     }
 };
+
 
 
 export const deleteProductImage = async (req, res) => {

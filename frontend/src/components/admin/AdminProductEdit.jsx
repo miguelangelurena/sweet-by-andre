@@ -9,7 +9,6 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
     stock: String(product.stock ?? 0),
     category_id: product.category_id ?? "",
   });
-
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,23 +16,17 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
 
   useEffect(() => {
     let active = true;
-
     async function loadCategories() {
       try {
         const response = await getCategories();
-
-        if (active) {
-          setCategories(response.categories ?? []);
-        }
+        if (active) setCategories(response.categories ?? []);
       } catch (err) {
         if (active) setError(err.message);
       } finally {
         if (active) setLoadingCategories(false);
       }
     }
-
     loadCategories();
-
     return () => {
       active = false;
     };
@@ -41,17 +34,13 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
 
   function handleChange(event) {
     const { name, value } = event.target;
-
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setForm((previous) => ({ ...previous, [name]: value }));
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (saving) return;
     setError("");
-
     const price = Number(form.price);
     const stock = Number(form.stock);
 
@@ -59,24 +48,20 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
       setError("Product name is required.");
       return;
     }
-
     if (form.price.trim() === "" || !Number.isFinite(price) || price <= 0) {
       setError("Price must be greater than zero.");
       return;
     }
-
     if (form.stock.trim() === "" || !Number.isInteger(stock) || stock < 0) {
       setError("Stock must be a non-negative integer.");
       return;
     }
-
     if (!form.category_id) {
       setError("Please select a category.");
       return;
     }
 
     setSaving(true);
-
     try {
       const response = await updateProduct(product.id, {
         name: form.name.trim(),
@@ -85,7 +70,6 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
         stock,
         category_id: form.category_id,
       });
-
       await onUpdated(response.product);
     } catch (err) {
       setError(err.message);
@@ -95,72 +79,82 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
   }
 
   const inputClass =
-    "w-full rounded-lg border border-[#E7DCD9] " +
-    "bg-white px-4 py-3 text-sm text-[#282323] " +
-    "outline-none focus:border-[#D47783]";
+    "w-full min-w-0 rounded-xl border border-[#E7DCD9] bg-white px-4 py-3 " +
+    "text-base text-[#282323] outline-none transition-colors " +
+    "placeholder:text-[#A79A97] focus:border-[#D47783] focus:ring-2 " +
+    "focus:ring-[#D47783]/15 disabled:cursor-not-allowed disabled:bg-[#FAF7F5] " +
+    "sm:text-sm";
+  const labelClass = "mb-2 block text-sm font-semibold text-[#453B39]";
 
   return (
-    <section className="mb-8 rounded-xl border border-[#E7DCD9] bg-white p-6">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-2xl text-[#282323]">Edit Product</h2>
-
-          <p className="mt-1 text-sm text-[#756B69]">Editing: {product.name}</p>
+    <section className="mb-8 min-w-0 overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white shadow-sm">
+      <div className="border-b border-[#F0E6E4] bg-[#FAF7F5] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#B76473]">
+              Product Management
+            </p>
+            <h2 className="font-serif text-2xl text-[#282323] sm:text-3xl">
+              Edit Product
+            </h2>
+            <p className="mt-2 break-words text-sm text-[#756B69]">
+              Editing:{" "}
+              <span className="font-medium text-[#453B39]">{product.name}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="w-full cursor-pointer rounded-xl border border-[#E7DCD9] bg-white px-4 py-2.5 text-sm font-medium text-[#756B69] transition-colors hover:bg-[#F7EEEE] hover:text-[#B76473] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            Cancel
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={saving}
-          className="cursor-pointer text-sm text-[#756B69] hover:text-[#B76473] disabled:cursor-not-allowed"
-        >
-          Cancel
-        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-7 lg:px-8"
+      >
         <div>
-          <label htmlFor="edit-name" className="mb-2 block text-sm font-medium">
+          <label htmlFor="edit-name" className={labelClass}>
             Product Name
           </label>
-
           <input
             id="edit-name"
             name="name"
             value={form.name}
             onChange={handleChange}
             required
+            maxLength={150}
+            disabled={saving}
             className={inputClass}
+            placeholder="e.g. Vanilla Birthday Cake"
           />
         </div>
 
         <div>
-          <label
-            htmlFor="edit-description"
-            className="mb-2 block text-sm font-medium"
-          >
+          <label htmlFor="edit-description" className={labelClass}>
             Description
           </label>
-
           <textarea
             id="edit-description"
             name="description"
             value={form.description}
             onChange={handleChange}
-            rows={3}
-            className={inputClass}
+            rows={4}
+            disabled={saving}
+            className={`${inputClass} resize-y`}
+            placeholder="Describe the product..."
           />
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="edit-price"
-              className="mb-2 block text-sm font-medium"
-            >
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="min-w-0">
+            <label htmlFor="edit-price" className={labelClass}>
               Price (USD)
             </label>
-
             <input
               id="edit-price"
               name="price"
@@ -170,18 +164,16 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
               value={form.price}
               onChange={handleChange}
               required
+              disabled={saving}
+              inputMode="decimal"
               className={inputClass}
+              placeholder="45.00"
             />
           </div>
-
-          <div>
-            <label
-              htmlFor="edit-stock"
-              className="mb-2 block text-sm font-medium"
-            >
+          <div className="min-w-0">
+            <label htmlFor="edit-stock" className={labelClass}>
               Stock
             </label>
-
             <input
               id="edit-stock"
               name="stock"
@@ -191,30 +183,31 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
               value={form.stock}
               onChange={handleChange}
               required
+              disabled={saving}
+              inputMode="numeric"
               className={inputClass}
             />
           </div>
         </div>
 
         <div>
-          <label
-            htmlFor="edit-category"
-            className="mb-2 block text-sm font-medium"
-          >
+          <label htmlFor="edit-category" className={labelClass}>
             Category
           </label>
-
           <select
             id="edit-category"
             name="category_id"
             value={form.category_id}
             onChange={handleChange}
-            disabled={loadingCategories}
+            disabled={loadingCategories || saving}
             required
             className={inputClass}
           >
-            <option value="">Select a category</option>
-
+            <option value="">
+              {loadingCategories
+                ? "Loading categories..."
+                : "Select a category"}
+            </option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -226,17 +219,25 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
         {error && (
           <p
             role="alert"
-            className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+            className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700"
           >
             {error}
           </p>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-[#F0E6E4] pt-5 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="w-full cursor-pointer rounded-xl border border-[#E7DCD9] px-6 py-3 text-sm font-semibold text-[#756B69] transition-colors hover:bg-[#FAF7F5] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            Cancel
+          </button>
           <button
             type="submit"
             disabled={saving || loadingCategories}
-            className="cursor-pointer rounded-lg bg-[#D47783] px-6 py-3 text-sm font-semibold text-white hover:bg-[#B76473] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full cursor-pointer rounded-xl bg-[#D47783] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#B76473] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>

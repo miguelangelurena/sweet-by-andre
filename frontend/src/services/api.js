@@ -91,3 +91,29 @@ export function updateProductAvailability(productId, isAvailable) {
         }),
     });
 }
+
+
+export function getProductImages(productId) {
+    return apiRequest(`/products/${productId}/images`);
+}
+
+export function setMainProductImage(productId, imageId) {
+    return apiRequest(
+        `/products/${productId}/images/${imageId}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify({
+                display_order: 1,
+            }),
+        }
+    );
+}
+
+export function deleteProductImage(productId, imageId) {
+    return apiRequest(
+        `/products/${productId}/images/${imageId}`,
+        {
+            method: "DELETE",
+        }
+    );
+}
