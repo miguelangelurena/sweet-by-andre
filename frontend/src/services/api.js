@@ -26,6 +26,10 @@ export function getProducts() {
     return apiRequest("/products");
 }
 
+export function getProductById(productId) {
+    return apiRequest(`/products/${encodeURIComponent(productId)}`);
+}
+
 export function getCategories() {
     return apiRequest("/categories");
 }
@@ -114,6 +118,107 @@ export function deleteProductImage(productId, imageId) {
         `/products/${productId}/images/${imageId}`,
         {
             method: "DELETE",
+        }
+    );
+}
+
+// ========================================
+// PRODUCT OPTIONS
+// ========================================
+
+// Get all options and values for a product (Admin)
+export function getAdminProductOptions(productId) {
+    return apiRequest(
+        `/admin/products/${encodeURIComponent(productId)}/options`
+    );
+}
+
+// Create a new option (Size, Flavor, Package Size...)
+export function createProductOption(productId, name) {
+    return apiRequest(
+        `/admin/products/${encodeURIComponent(productId)}/options`,
+        {
+            method: "POST",
+            body: JSON.stringify({ name }),
+        }
+    );
+}
+
+// Update an existing option
+export function updateProductOption(optionId, optionData) {
+    return apiRequest(
+        `/admin/product-options/${encodeURIComponent(optionId)}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify(optionData),
+        }
+    );
+}
+
+
+// ========================================
+// PRODUCT OPTION VALUES
+// ========================================
+
+// Create a value (4", 6", Oreo, Vanilla...)
+export function createProductOptionValue(optionId, value) {
+    return apiRequest(
+        `/admin/product-options/${encodeURIComponent(optionId)}/values`,
+        {
+            method: "POST",
+            body: JSON.stringify({ value }),
+        }
+    );
+}
+
+// Update a value or its availability
+export function updateProductOptionValue(valueId, valueData) {
+    return apiRequest(
+        `/admin/product-option-values/${encodeURIComponent(valueId)}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify(valueData),
+        }
+    );
+}
+
+
+// ========================================
+// PRODUCT VARIANTS
+// ========================================
+
+// Get every variant, including unavailable ones (Admin)
+export function getAdminProductVariants(productId) {
+    return apiRequest(
+        `/admin/products/${encodeURIComponent(productId)}/variants`
+    );
+}
+
+// Get only available variants (Public)
+export function getProductVariants(productId) {
+    return apiRequest(
+        `/products/${encodeURIComponent(productId)}/variants`
+    );
+}
+
+// Create a new variant with its options and price
+export function createProductVariant(productId, variantData) {
+    return apiRequest(
+        `/admin/products/${encodeURIComponent(productId)}/variants`,
+        {
+            method: "POST",
+            body: JSON.stringify(variantData),
+        }
+    );
+}
+
+// Update variant price, stock, or availability
+export function updateProductVariant(variantId, variantData) {
+    return apiRequest(
+        `/admin/variants/${encodeURIComponent(variantId)}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify(variantData),
         }
     );
 }

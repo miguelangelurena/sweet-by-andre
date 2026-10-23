@@ -16,6 +16,17 @@ import {
 } from "../controllers/product.controllers.js";
 
 import {
+    getProductVariants,
+    createProductOption,
+    createProductOptionValue,
+    createProductVariant,
+    updateProductVariant,
+    getProductOptions,
+    updateProductOption,
+    updateProductOptionValue
+} from "../controllers/productVariant.controllers.js";
+
+import {
     uploadProductImage as uploadMiddleware,
 } from "../middleware/uploadProductImage.js";
 
@@ -35,6 +46,8 @@ router.get("/products", getProducts);
 router.get("/products/:id", getProductById);
 
 router.get("/products/:id/images", getProductImages);
+
+router.get("/products/:id/variants", getProductVariants);
 
 // -------------------------
 // ADMIN PRODUCT ROUTES
@@ -66,6 +79,63 @@ router.patch(
     requireAuth,
     requireAdmin,
     updateProductAvailability
+);
+
+router.post(
+    "/admin/product-options/:optionId/values",
+    requireAuth,
+    requireAdmin,
+    createProductOptionValue
+);
+
+
+router.post(
+    "/admin/products/:id/variants",
+    requireAuth,
+    requireAdmin,
+    createProductVariant
+);
+
+router.patch(
+    "/admin/variants/:id",
+    requireAuth,
+    requireAdmin,
+    updateProductVariant
+);
+
+router.get(
+    "/admin/products/:id/options",
+    requireAuth,
+    requireAdmin,
+    getProductOptions
+);
+
+router.patch(
+    "/admin/product-options/:optionId",
+    requireAuth,
+    requireAdmin,
+    updateProductOption
+);
+
+router.patch(
+    "/admin/product-option-values/:valueId",
+    requireAuth,
+    requireAdmin,
+    updateProductOptionValue
+);
+
+router.post(
+    "/admin/products/:id/options",
+    requireAuth,
+    requireAdmin,
+    createProductOption
+);
+
+router.get(
+    "/admin/products/:id/variants",
+    requireAuth,
+    requireAdmin,
+    getProductVariants
 );
 
 // -------------------------

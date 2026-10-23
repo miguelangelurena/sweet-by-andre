@@ -2,13 +2,6 @@ import { useEffect, useState } from "react";
 import { getProducts, getCategories } from "../services/api";
 import ProductCard from "../components/products/ProductCard";
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Number(price));
-};
-
 export default function Catalog() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);

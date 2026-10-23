@@ -46,7 +46,7 @@ export default function Home() {
 
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <a
-              href="#menu"
+              href="#catalog"
               className="rounded-full bg-[#B76473] px-8 py-4 text-sm font-semibold text-white transition hover:bg-[#9E4F60]"
             >
               Explore Our Menu
@@ -133,7 +133,7 @@ export default function Home() {
                   </p>
 
                   <a
-                    href="#menu"
+                    href="#catalog"
                     className="mt-5 inline-block text-sm font-semibold text-[#B76473]"
                   >
                     Explore Collection →

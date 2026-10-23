@@ -6,10 +6,14 @@ const formatPrice = (price) => {
 };
 
 export default function ProductCard({ product }) {
-  const inStock = product.stock > 0;
+  const inStock =
+    product.has_available_variants && Number(product.total_stock) > 0;
 
   return (
-    <article className="group overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white transition-shadow duration-300 hover:shadow-lg">
+    <a
+      href={`#product/${product.id}`}
+      className="group block overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white transition-shadow duration-300 hover:shadow-lg"
+    >
       <div className="aspect-[4/3] overflow-hidden bg-[#F1E5E2]">
         {product.image_url ? (
           <img
@@ -42,7 +46,9 @@ export default function ProductCard({ product }) {
 
         <div className="mt-6 flex items-center justify-between border-t border-[#F0E7E4] pt-5">
           <span className="text-lg font-semibold text-[#282323]">
-            {formatPrice(product.price)}
+            {inStock
+              ? `From ${formatPrice(product.min_price)}`
+              : "Currently unavailable"}
           </span>
 
           <span
@@ -54,6 +60,6 @@ export default function ProductCard({ product }) {
           </span>
         </div>
       </div>
-    </article>
+    </a>
   );
 }
