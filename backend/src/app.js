@@ -1,6 +1,7 @@
 import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import cookieParser from "cookie-parser";
 
 import { pool } from "./config/database.js";
 import healthRouter from "./routes/health.routes.js";
@@ -12,6 +13,7 @@ import orderRouter from "./routes/orders.routes.js";
 import paymentRouter from "./routes/payments.routes.js";
 import { handleStripeWebhook } from "./controllers/stripe-webhook.controllers.js";
 import adminOrdersRouter from "./routes/admin-orders.routes.js";
+import guestCartRoutes from "./routes/guestCart.routes.js";
 
 const app = express();
 
@@ -51,5 +53,7 @@ app.use("/api", cartRouter);
 app.use("/api", orderRouter);
 app.use("/api", paymentRouter);
 app.use("/api/admin", adminOrdersRouter);
+app.use(cookieParser());
+app.use("/api", guestCartRoutes);
 
 export default app;

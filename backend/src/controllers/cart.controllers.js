@@ -46,6 +46,28 @@ const loadVariant = (client, variantId) => client.query(`
     FOR UPDATE OF v;
 `, [variantId]);
 
+// A cart is authorized only by requireAuth (req.user) or
+// requireGuestCart (req.cartId). Never trust a cart ID from req.body.
+const findAuthorizedCart = (client, req, lock = false) => {
+    const userId = req.user?.id ?? null;
+    const guestCartId = req.cartId ?? null;
+
+    // Avoid ambiguous ownership if both middlewares are attached accidentally.
+    if ((userId === null) === (guestCartId === null)) {
+        return null;
+    }
+    if (userId !== null && !validUuid(userId)) return null;
+    if (guestCartId !== null && !validUuid(guestCartId)) return null;
+
+    return client.query(`
+        SELECT id, created_at
+        FROM cart
+        WHERE ($1::uuid IS NOT NULL AND user_id = $1::uuid)
+           OR ($2::uuid IS NOT NULL AND id = $2::uuid AND user_id IS NULL)
+        ${lock ? "FOR UPDATE" : ""};
+    `, [userId, guestCartId]);
+};
+
 export const createCart = async (req, res) => {
     try {
         const result = await pool.query(`
@@ -69,7 +91,8 @@ export const addCartItem = async (req, res) => {
     try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const cartResult = await client.query("SELECT id FROM cart WHERE user_id = $1 FOR UPDATE", [req.user.id]);
+        const cartResult = await findAuthorizedCart(client, req, true);
+        if (!cartResult) { await rollback(client); return fail(res, 401, "Cart authentication required"); }
         if (!cartResult.rowCount) { await rollback(client); return fail(res, 404, "Cart not found. Create your cart first."); }
         const cartId = cartResult.rows[0].id;
         const variantResult = await loadVariant(client, variant_id);
@@ -104,7 +127,8 @@ export const addCartItem = async (req, res) => {
 
 export const getCart = async (req, res) => {
     try {
-        const cartResult = await pool.query("SELECT id, created_at FROM cart WHERE user_id = $1", [req.user.id]);
+        const cartResult = await findAuthorizedCart(pool, req);
+        if (!cartResult) return fail(res, 401, "Cart authentication required");
         if (!cartResult.rowCount) return fail(res, 404, "Cart not found");
         const cart = cartResult.rows[0];
         const result = await pool.query(`
@@ -114,7 +138,8 @@ export const getCart = async (req, res) => {
                    (ci.price_at_added <> v.price) AS price_changed,
                    (ci.quantity * ci.price_at_added) AS subtotal,
                    (ci.quantity * v.price) AS current_subtotal,
-                   (v.is_available AND p.is_available AND c.is_active AND v.stock >= ci.quantity
+                   (v.is_available AND p.is_available AND c.is_active AND v.stock >= (SELECT COALESCE(SUM(ci2.quantity), 0) FROM cart_items ci2
+                                    WHERE ci2.cart_id = ci.cart_id AND ci2.variant_id = ci.variant_id)
                     AND (${VARIANT_VALIDITY})) AS is_available,
                    v.stock AS variant_stock,
                    COALESCE((
@@ -158,7 +183,8 @@ export const updateCartItem = async (req, res) => {
     try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const cartResult = await client.query("SELECT id FROM cart WHERE user_id = $1 FOR UPDATE", [req.user.id]);
+        const cartResult = await findAuthorizedCart(client, req, true);
+        if (!cartResult) { await rollback(client); return fail(res, 401, "Cart authentication required"); }
         if (!cartResult.rowCount) { await rollback(client); return fail(res, 404, "Cart not found"); }
         const cartId = cartResult.rows[0].id;
         const itemResult = await client.query("SELECT id, variant_id FROM cart_items WHERE id = $1 AND cart_id = $2", [id, cartId]);
@@ -191,15 +217,26 @@ export const updateCartItem = async (req, res) => {
 export const deleteCartItem = async (req, res) => {
     const { id } = req.params;
     if (!validUuid(id)) return fail(res, 400, "Invalid cart item id");
+    let client;
     try {
-        const result = await pool.query(`
-            DELETE FROM cart_items ci USING cart c
-            WHERE ci.id = $1 AND ci.cart_id = c.id AND c.user_id = $2
-            RETURNING ci.id, ci.product_id, ci.variant_id;
-        `, [id, req.user.id]);
-        if (!result.rowCount) return fail(res, 404, "Cart item not found");
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const cartResult = await findAuthorizedCart(client, req, true);
+        if (!cartResult) { await rollback(client); return fail(res, 401, "Cart authentication required"); }
+        if (!cartResult.rowCount) { await rollback(client); return fail(res, 404, "Cart not found"); }
+
+        const result = await client.query(`
+            DELETE FROM cart_items
+            WHERE id = $1 AND cart_id = $2
+            RETURNING id, product_id, variant_id;
+        `, [id, cartResult.rows[0].id]);
+        if (!result.rowCount) { await rollback(client); return fail(res, 404, "Cart item not found"); }
+        await client.query("COMMIT");
         return res.status(200).json({ status: "GOOD", message: "Cart item deleted successfully", cart_item: result.rows[0] });
-    } catch (error) { return serverError(res, error); }
+    } catch (error) {
+        if (client) await rollback(client);
+        return serverError(res, error);
+    } finally { client?.release(); }
 };
 
 export const acceptCartPriceChanges = async (req, res) => {
@@ -207,7 +244,8 @@ export const acceptCartPriceChanges = async (req, res) => {
     try {
         client = await pool.connect();
         await client.query("BEGIN");
-        const cartResult = await client.query("SELECT id FROM cart WHERE user_id = $1 FOR UPDATE", [req.user.id]);
+        const cartResult = await findAuthorizedCart(client, req, true);
+        if (!cartResult) { await rollback(client); return fail(res, 401, "Cart authentication required"); }
         if (!cartResult.rowCount) { await rollback(client); return fail(res, 404, "Cart not found"); }
         const cartId = cartResult.rows[0].id;
         const itemsResult = await client.query("SELECT id, variant_id, quantity FROM cart_items WHERE cart_id = $1 ORDER BY variant_id", [cartId]);
