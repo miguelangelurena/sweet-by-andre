@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const CART_UPDATED_EVENT = "sweetbyandre:cart-updated";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
 
   const links = [
     { label: "Home", href: "#home" },
@@ -10,6 +13,56 @@ export default function Header() {
     { label: "About Us", href: "#about" },
     { label: "Contact", href: "#contact" },
   ];
+
+  useEffect(() => {
+    let active = true;
+    let requestNumber = 0;
+
+    async function refreshCartCount() {
+      const thisRequest = ++requestNumber;
+
+      try {
+        // Consultamos el carrito existente sin crear uno al visitar la tienda.
+        const response = await fetch("/api/guest/cart", {
+          method: "GET",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+
+        if (response.status === 401 || response.status === 404) {
+          if (active && thisRequest === requestNumber) setCartCount(0);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Could not load cart (${response.status})`);
+        }
+
+        const data = await response.json();
+        const count = (data.cart?.items ?? []).reduce(
+          (total, item) => total + Number(item.quantity || 0),
+          0,
+        );
+
+        if (active && thisRequest === requestNumber) {
+          setCartCount(count);
+        }
+      } catch (error) {
+        // Conservamos el contador anterior ante fallos temporales de red.
+        console.error("Could not refresh cart count:", error);
+      }
+    }
+
+    refreshCartCount();
+    window.addEventListener(CART_UPDATED_EVENT, refreshCartCount);
+    window.addEventListener("focus", refreshCartCount);
+
+    return () => {
+      active = false;
+      window.removeEventListener(CART_UPDATED_EVENT, refreshCartCount);
+      window.removeEventListener("focus", refreshCartCount);
+    };
+  }, []);
 
   return (
     <header className="border-b border-[#E7DCD9] bg-[#FAF7F5]">
@@ -36,22 +89,25 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-5">
-          <button
-            type="button"
-            aria-label="Shopping cart"
-            className="relative text-xl text-[#282323]"
+          <a
+            href="#cart"
+            aria-label={`Shopping cart, ${cartCount} items`}
+            className="relative text-xl text-[#282323] transition hover:text-[#B76473]"
           >
-            🛒
-            <span className="absolute -right-2 -top-2 rounded-full bg-[#D47783] px-1.5 text-[10px] text-white">
-              0
+            <span aria-hidden="true">🛒</span>
+            <span
+              aria-hidden="true"
+              className="absolute -right-2 -top-2 min-w-4 rounded-full bg-[#D47783] px-1.5 text-center text-[10px] leading-4 text-white"
+            >
+              {cartCount > 99 ? "99+" : cartCount}
             </span>
-          </button>
+          </a>
 
           <button
             type="button"
             aria-label="Toggle menu"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => setMenuOpen((open) => !open)}
             className="text-2xl text-[#282323] md:hidden"
           >
             ☰
@@ -71,6 +127,13 @@ export default function Header() {
               {link.label}
             </a>
           ))}
+          <a
+            href="#cart"
+            onClick={() => setMenuOpen(false)}
+            className="text-sm text-[#282323]"
+          >
+            Cart ({cartCount})
+          </a>
         </nav>
       )}
     </header>

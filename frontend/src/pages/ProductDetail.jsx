@@ -1,6 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProductById, getProductVariants } from "../services/api";
 
+// Set VITE_API_BASE_URL in frontend/.env to the Express origin (without /api).
+// For local development the default expects Express on port 3000.
+const API_BASE_URL = (
+    import.meta.env.VITE_API_BASE_URL || ""
+).replace(/\/$/, "");
+
+async function guestCartRequest(path, options = {}) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      ...options,
+    });
+  } catch {
+    throw new Error("Cannot connect to the shop. Please try again.");
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || `Request failed (${response.status}).`);
+  }
+  return data;
+}
+
 const formatPrice = (price) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -16,6 +40,9 @@ export default function ProductDetail({ productId }) {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartMessage, setCartMessage] = useState("");
+  const [cartError, setCartError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -29,6 +56,8 @@ export default function ProductDetail({ productId }) {
       setSelectedImage(0);
       setQuantity(1);
       setNotes("");
+      setCartMessage("");
+      setCartError("");
 
       try {
         const [productResponse, variantsResponse] = await Promise.all([
@@ -140,6 +169,45 @@ export default function ProductDetail({ productId }) {
     }
     setSelectedValues(next);
     setQuantity(1);
+  }
+
+  async function handleAddToCart() {
+    if (!selectedVariant || addingToCart || quantity < 1) return;
+
+    setAddingToCart(true);
+    setCartError("");
+    setCartMessage("");
+
+    try {
+      // Creating the cart again is safe: existing guest cookies recover it.
+      await guestCartRequest("/api/guest/cart", { method: "POST" });
+
+      const { csrf_token } = await guestCartRequest(
+        "/api/guest/cart/csrf-token",
+      );
+      if (!csrf_token) throw new Error("Could not initialize cart security.");
+
+      await guestCartRequest("/api/guest/cart/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrf_token,
+        },
+        body: JSON.stringify({
+          variant_id: selectedVariant.id,
+          quantity,
+          notes: notes.trim() || null,
+        }),
+      });
+
+      setCartMessage("Added to your cart!");
+      // The navbar can subscribe to this event once we implement its counter.
+      window.dispatchEvent(new Event("sweetbyandre:cart-updated"));
+    } catch (err) {
+      setCartError(err.message || "Could not add the item to your cart.");
+    } finally {
+      setAddingToCart(false);
+    }
   }
 
   if (loading) {
@@ -336,11 +404,30 @@ export default function ProductDetail({ productId }) {
               </div>
               <button
                 type="button"
-                disabled
-                className="mt-7 w-full rounded-full bg-[#B76473] px-8 py-4 font-semibold text-white opacity-60"
+                onClick={handleAddToCart}
+                disabled={!inStock || addingToCart}
+                className="mt-7 w-full rounded-full bg-[#B76473] px-8 py-4 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {inStock ? "Add to Cart — Coming Soon" : "Out of Stock"}
+                {!inStock
+                  ? "Out of Stock"
+                  : addingToCart
+                    ? "Adding to Cart..."
+                    : "Add to Cart"}
               </button>
+              {cartMessage && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="mt-3 text-sm text-green-700"
+                >
+                  {cartMessage}
+                </p>
+              )}
+              {cartError && (
+                <p role="alert" className="mt-3 text-sm text-red-700">
+                  {cartError}
+                </p>
+              )}
             </div>
           </section>
         </div>

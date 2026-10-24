@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import Header from "./components/layout/Header";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
@@ -7,14 +8,15 @@ import AdminGuard from "./components/auth/AdminGuard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
 
 export default function App() {
   const [hash, setHash] = useState(window.location.hash);
 
   useEffect(() => {
-    // Reset scroll when navigating between pages
     const isPageRoute =
       hash === "#catalog" ||
+      hash === "#cart" ||
       hash.startsWith("#product/") ||
       hash === "#admin/products" ||
       hash === "#admin/login" ||
@@ -74,6 +76,23 @@ export default function App() {
       <>
         <Header />
         <ProductDetail productId={productMatch[1]} />
+      </>
+    );
+  }
+
+  // -------------------------
+  // PUBLIC CART
+  // -------------------------
+
+  if (hash === "#cart") {
+    return (
+      <>
+        <Header />
+        <Cart
+          onContinueShopping={() => {
+            window.location.hash = "#catalog";
+          }}
+        />
       </>
     );
   }
