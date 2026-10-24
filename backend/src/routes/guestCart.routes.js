@@ -24,6 +24,8 @@ import {
 
 import { requireTrustedOrigin } from "../middleware/trustedOrigin.js";
 
+import { createOrder } from "../controllers/order.controllers.js";
+
 const router = express.Router();
 
 // Create or recover a guest cart.
@@ -78,5 +80,15 @@ router.patch(
     requireGuestCsrf,
     acceptCartPriceChanges
 );
+
+
+// Create an order for a guest customer.
+router.post(
+    "/guest/orders",
+    requireGuestCart,
+    requireGuestCsrf,
+    createOrder
+);
+
 
 export default router;
