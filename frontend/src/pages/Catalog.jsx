@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { getProducts, getCategories } from "../services/api";
 import ProductCard from "../components/products/ProductCard";
+import { ProductGridSkeleton } from "../components/ui/Skeleton";
 
 export default function Catalog() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(9);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function Catalog() {
     return product.is_available && matchesCategory;
   });
 
+  useEffect(() => { setVisibleCount(9); }, [selectedCategory]);
+
   return (
     <main className="min-h-screen bg-[#FAF7F5] px-6 py-16">
       <div className="mx-auto max-w-7xl">
@@ -54,9 +58,7 @@ export default function Catalog() {
         </header>
 
         {loading && (
-          <p className="text-center text-[#796D6A]">
-            Loading our sweet creations...
-          </p>
+          <ProductGridSkeleton count={6} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3" />
         )}
 
         {error && (
@@ -102,9 +104,20 @@ export default function Catalog() {
               </p>
             ) : (
               <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleProducts.map((product) => (
+                {visibleProducts.slice(0, visibleCount).map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
+              </div>
+            )}
+            {visibleProducts.length > visibleCount && (
+              <div className="mt-10 text-center">
+                <button type="button" onClick={() => setVisibleCount((count) => count + 9)}
+                  className="rounded-full border border-[#B76473] bg-white px-8 py-3 font-semibold text-[#97495A] transition-colors hover:bg-[#FAEDEE]">
+                  Show more desserts
+                </button>
+                <p className="mt-3 text-sm text-[#796D6A]" aria-live="polite">
+                  Showing {Math.min(visibleCount, visibleProducts.length)} of {visibleProducts.length} desserts
+                </p>
               </div>
             )}
           </>

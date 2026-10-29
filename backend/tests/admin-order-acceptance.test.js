@@ -16,6 +16,10 @@ test("admin can accept a paid order only once", async () => {
     let userId = null;
     let orderId = null;
 
+    // Guard against accidentally using the development or production database.
+    const dbName = await pool.query("SELECT current_database() AS name");
+    assert.equal(dbName.rows[0].name, "sweet_by_andre_test");
+
     try {
         // 1. Create a temporary user.
         const registration = await agent
@@ -42,6 +46,11 @@ test("admin can accept a paid order only once", async () => {
             .post("/api/auth/login")
             .send({ email, password })
             .expect(200);
+
+        // Retrieve session CSRF after login; protected writes require it.
+        const csrfResponse = await agent.get("/api/cart/csrf-token").expect(200);
+        const csrfToken = csrfResponse.body.csrf_token;
+        assert.match(csrfToken, /^[0-9a-f]{64}$/i);
 
         // 4. Create a temporary unpaid order.
         const orderResult = await pool.query(
@@ -79,6 +88,7 @@ test("admin can accept a paid order only once", async () => {
         // 5. An unpaid order must not be accepted.
         await agent
             .patch(`/api/admin/orders/${orderId}/accept`)
+            .set("X-CSRF-Token", csrfToken)
             .expect(409);
 
         // 6. Simulate payment confirmation in the test database.
@@ -90,6 +100,7 @@ test("admin can accept a paid order only once", async () => {
         // 7. A paid order can be accepted.
         const accepted = await agent
             .patch(`/api/admin/orders/${orderId}/accept`)
+            .set("X-CSRF-Token", csrfToken)
             .expect(200);
 
         assert.equal(accepted.body.status, "GOOD");
@@ -99,6 +110,7 @@ test("admin can accept a paid order only once", async () => {
         // 8. The same order cannot be accepted twice.
         await agent
             .patch(`/api/admin/orders/${orderId}/accept`)
+            .set("X-CSRF-Token", csrfToken)
             .expect(409);
 
     } finally {

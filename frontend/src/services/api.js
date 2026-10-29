@@ -1,4 +1,3 @@
-
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 export async function apiRequest(endpoint, options = {}) {
@@ -221,4 +220,50 @@ export function updateProductVariant(variantId, variantData) {
             body: JSON.stringify(variantData),
         }
     );
+}
+
+// ========================================
+// GUEST CHECKOUT / PENDING ORDERS
+// ========================================
+
+export function getGuestCart() {
+    return apiRequest("/guest/cart");
+}
+
+export function ensureGuestCart() {
+    return apiRequest("/guest/cart", { method: "POST" });
+}
+
+export async function getGuestCsrfToken() {
+    const response = await apiRequest("/guest/cart/csrf-token");
+    if (!response?.csrf_token) {
+        throw new Error("Could not obtain the security token.");
+    }
+    return response.csrf_token;
+}
+
+export async function createGuestPendingOrder(orderData, idempotencyKey) {
+    if (!idempotencyKey) throw new Error("Missing order request identifier");
+    const csrfToken = await getGuestCsrfToken();
+    return apiRequest("/guest/orders", {
+        method: "POST",
+        headers: {
+            "X-CSRF-Token": csrfToken,
+            "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify(orderData),
+    });
+}
+
+// The backend independently checks ownership, CSRF and payment activation.
+export async function startGuestStripeCheckout(orderId) {
+    if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(orderId ?? "")) {
+        throw new Error("Invalid order identifier.");
+    }
+    const csrfToken = await getGuestCsrfToken();
+    return apiRequest("/payments/checkout", {
+        method: "POST",
+        headers: { "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ order_id: orderId }),
+    });
 }

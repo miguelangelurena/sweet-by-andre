@@ -1,15 +1,28 @@
+
 import express from "express";
-import { createOrder } from "../controllers/order.controllers.js";
-import { requireAuth } from "../middleware/requireAuth.js";
-import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
+
+import {
+    createOrder
+} from "../controllers/order.controllers.js";
+
+import {
+    requireCheckoutIdentity
+} from "../middleware/requireCheckoutIdentity.js";
 
 const router = express.Router();
 
-// Create an order for an authenticated customer.
+/**
+ * Creates pending orders for authenticated
+ * customers and guest customers.
+ *
+ * Security:
+ * - Authenticated users require session CSRF.
+ * - Guests require a valid cart and guest CSRF.
+ * - createOrder verifies cart ownership in PostgreSQL.
+ */
 router.post(
     "/orders",
-    requireAuth,
-    requireSessionCsrf,
+    ...requireCheckoutIdentity,
     createOrder
 );
 

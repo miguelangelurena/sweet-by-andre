@@ -22,9 +22,7 @@ export default function AdminLayout({ children }) {
             Products
           </a>
 
-          <span className="cursor-not-allowed rounded-lg px-4 py-3 text-sm text-[#A69B98]">
-            Orders · Coming soon
-          </span>
+          <a href="#admin/orders" className="rounded-lg px-4 py-3 text-sm font-semibold text-[#756B69] hover:bg-[#FAF0F1] hover:text-[#B76473]">Orders</a>
 
           <span className="cursor-not-allowed rounded-lg px-4 py-3 text-sm text-[#A69B98]">
             Dashboard · Coming soon

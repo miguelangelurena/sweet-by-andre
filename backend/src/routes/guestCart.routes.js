@@ -25,6 +25,7 @@ import {
 import { requireTrustedOrigin } from "../middleware/trustedOrigin.js";
 
 import { createOrder } from "../controllers/order.controllers.js";
+import { getGuestOrderStatus } from "../controllers/guestOrderStatus.controllers.js";
 
 const router = express.Router();
 
@@ -90,5 +91,8 @@ router.post(
     createOrder
 );
 
+
+// Authorized, read-only payment status for an existing guest order.
+router.get("/guest/orders/:orderId/status", requireGuestCart, getGuestOrderStatus);
 
 export default router;

@@ -1,33 +1,81 @@
+import { getRefundReview } from "../services/refundReview.service.js";
+import { cancelUnpaidOrder } from "../services/cancelUnpaidOrder.service.js";
+import { transitionPaidOrder } from "../services/adminOrderWorkflow.service.js";
 
 import { pool } from "../config/database.js";
 
+// The optional query parameters support efficient server-side pagination.
+// Requests without pagination parameters preserve the original API behavior.
 export const getAdminOrders = async (req, res) => {
     try {
+        const { limit: limitRaw, offset: offsetRaw, payment_status: paymentStatus } = req.query;
+        const paginated = limitRaw !== undefined || offsetRaw !== undefined;
+        const validPaymentStatuses = new Set(["pending", "paid", "failed"]);
+
+        if (paymentStatus !== undefined && !validPaymentStatuses.has(paymentStatus)) {
+            return res.status(400).json({ status: "ERROR", message: "Invalid payment status filter" });
+        }
+
+        let limit = 20;
+        let offset = 0;
+
+        if (paginated) {
+            const rawLimit = limitRaw === undefined ? "20" : limitRaw;
+            const rawOffset = offsetRaw === undefined ? "0" : offsetRaw;
+            const validInteger = (value) => typeof value === "string" && /^(0|[1-9]\d*)$/.test(value);
+
+            if (!validInteger(rawLimit) || !validInteger(rawOffset)) {
+                return res.status(400).json({ status: "ERROR", message: "Invalid pagination parameters" });
+            }
+
+            limit = Number(rawLimit);
+            offset = Number(rawOffset);
+
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
+                !Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) {
+                return res.status(400).json({ status: "ERROR", message: "Invalid pagination range" });
+            }
+        }
+
+        const where = paymentStatus === undefined ? "" : "WHERE o.payment_status = $1";
+        const filterValues = paymentStatus === undefined ? [] : [paymentStatus];
+
+        const countResult = await pool.query(
+            `SELECT COUNT(*)::int AS total FROM orders o ${where}`,
+            filterValues
+        );
+        const total = countResult.rows[0].total;
+
+        const pageSql = paginated
+            ? `LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`
+            : "";
+        const values = paginated ? [...filterValues, limit, offset] : filterValues;
+
         const result = await pool.query(
             `
-            SELECT
-                o.id,
-                o.user_id,
-                o.total,
-                o.payment_status,
-                o.order_status,
-                o.delivery_date
+            SELECT o.id, o.user_id, o.total, o.payment_status,
+                   o.order_status, o.delivery_date
             FROM orders o
-            ORDER BY o.created_at DESC;
-            `
+            ${where}
+            ORDER BY o.created_at DESC, o.id DESC
+            ${pageSql};
+            `,
+            values
         );
 
         return res.status(200).json({
             status: "GOOD",
-            orders: result.rows
+            orders: result.rows,
+            pagination: {
+                total,
+                limit: paginated ? limit : result.rows.length,
+                offset: paginated ? offset : 0,
+                has_more: paginated ? offset + result.rows.length < total : false
+            }
         });
     } catch (error) {
         console.error("Get admin orders error:", error);
-
-        return res.status(500).json({
-            status: "ERROR",
-            message: "Could not retrieve orders"
-        });
+        return res.status(500).json({ status: "ERROR", message: "Could not retrieve orders" });
     }
 };
 
@@ -234,3 +282,100 @@ export const rejectAdminOrder = async (req, res) => {
 };
 
 
+
+
+/**
+ * Advance a paid order through fulfillment, one step at a time.
+ * Payment status is never edited here. All mutable routes require admin
+ * authentication AND a session-bound CSRF token in the router.
+ */
+export const advanceAdminOrderStatus = async (req, res) => {
+    const { id } = req.params;
+    const targetStatus = req.body?.target_status;
+
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "Invalid order ID"
+        });
+    }
+
+    if (typeof targetStatus !== "string" ||
+        !["confirmed", "preparing", "ready", "completed"].includes(targetStatus)) {
+        return res.status(400).json({
+            status: "ERROR",
+            message: "Invalid target order status"
+        });
+    }
+
+    try {
+        const result = await transitionPaidOrder(pool, id, targetStatus);
+
+        if (result.outcome === "not_found") {
+            return res.status(404).json({ status: "ERROR", message: "Order not found" });
+        }
+
+        if (result.outcome === "conflict") {
+            return res.status(409).json({
+                status: "ERROR",
+                message: result.order.payment_status !== "paid"
+                    ? "Only paid orders can be advanced"
+                    : "Order status has changed or the transition is not allowed. Refresh and try again."
+            });
+        }
+
+        if (result.outcome !== "updated") {
+            return res.status(400).json({ status: "ERROR", message: "Invalid order status" });
+        }
+
+        return res.status(200).json({
+            status: "GOOD",
+            message: "Order status updated",
+            order: result.order
+        });
+    } catch (error) {
+        console.error("Advance order status error:", error);
+        return res.status(500).json({
+            status: "ERROR",
+            message: "Could not update order status"
+        });
+    }
+};
+
+/** Cancel an unpaid order ONLY before any payment or reservation activity. */
+export const cancelUnpaidAdminOrder = async (req, res) => {
+    const { id } = req.params;
+    if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) {
+        return res.status(400).json({ status: "ERROR", message: "Invalid order ID" });
+    }
+    try {
+        const order = await cancelUnpaidOrder(pool, id);
+        if (!order) {
+            return res.status(409).json({
+                status: "ERROR",
+                message: "Cancellation unavailable. Only unpaid pending orders with no payment or reservation activity can be cancelled."
+            });
+        }
+        return res.status(200).json({ status: "GOOD", message: "Unpaid order cancelled", order });
+    } catch (error) {
+        console.error("Cancel unpaid order error:", error);
+        return res.status(500).json({ status: "ERROR", message: "Could not cancel order" });
+    }
+};
+
+
+/** Safe inspection only. Never calls Stripe or writes any database record. */
+export const reviewAdminOrderRefund = async (req, res) => {
+  const { id } = req.params;
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) {
+    return res.status(400).json({ status: "ERROR", message: "Invalid order ID" });
+  }
+  try {
+    const review = await getRefundReview(pool, id);
+    if (!review) return res.status(404).json({status:"ERROR",message:"Order not found"});
+    return res.status(200).json({status:"GOOD",review});
+  } catch (error) {
+    console.error("Refund review error:", error);
+    return res.status(500).json({status:"ERROR",message:"Could not inspect refund status"});
+  }
+};

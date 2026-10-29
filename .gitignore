@@ -3,3 +3,7 @@ backend/.env
 .vscode/
 .DS_Store
 *.log
+# Environment variables - never commit secrets
+.env
+.env.*
+!.env.example

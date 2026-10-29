@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 
 import { pool } from "../config/database.js";
 
@@ -45,6 +46,23 @@ export const createOrder = async (req, res) => {
         customer_email,
         customer_phone
     } = body;
+
+    // The same logical checkout must reuse the same UUID, including after a timeout.
+    const idempotencyKey = req.get("Idempotency-Key");
+    if (typeof idempotencyKey !== "string" || !UUID_RE.test(idempotencyKey)) {
+        return fail(res, 400, "A UUID Idempotency-Key header is required");
+    }
+
+    // Hash an explicitly ordered and normalized snapshot of the submitted form.
+    // This prevents reusing the same key with changed delivery/contact details.
+    const payloadSnapshot = [
+        shipping_name, shipping_street, shipping_street_number,
+        shipping_unit ?? "", shipping_city, shipping_state,
+        shipping_zip_code, delivery_instructions ?? "", note ?? "",
+        delivery_date, customer_email, customer_phone
+    ].map(value => typeof value === "string" ? value.trim() : value);
+    const payloadHash = createHash("sha256")
+        .update(JSON.stringify(payloadSnapshot)).digest("hex");
 
     const userId = req.user?.id ?? null;
     const guestCartId = req.cartId ?? null;
@@ -125,6 +143,53 @@ export const createOrder = async (req, res) => {
     try {
         client = await pool.connect();
         await client.query("BEGIN");
+
+        // Reserve the idempotency key before touching the cart or stock.
+        // PostgreSQL's unique index serializes concurrent requests for the same key.
+        const identityType = userId ? "user" : "guest";
+        const identityId = userId ?? guestCartId;
+        const reserved = await client.query(
+            `INSERT INTO order_creation_requests
+               (identity_type, identity_id, idempotency_key, payload_hash)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (identity_type, identity_id, idempotency_key)
+             DO NOTHING
+             RETURNING id`,
+            [identityType, identityId, idempotencyKey, payloadHash]
+        );
+
+        if (!reserved.rowCount) {
+            const existing = await client.query(
+                `SELECT r.payload_hash, o.id, o.payment_status, o.order_status,
+                        o.subtotal, o.shipping_cost, o.tax_amount, o.total
+                 FROM order_creation_requests r
+                 LEFT JOIN orders o ON o.id = r.order_id
+                 WHERE r.identity_type = $1 AND r.identity_id = $2
+                   AND r.idempotency_key = $3`,
+                [identityType, identityId, idempotencyKey]
+            );
+            await client.query("ROLLBACK");
+            if (!existing.rowCount) {
+                return fail(res, 409, "Order request not available; please retry");
+            }
+            const previous = existing.rows[0];
+            if (previous.payload_hash !== payloadHash) {
+                return fail(res, 409, "Idempotency key was already used with different details");
+            }
+            if (!previous.id) {
+                return fail(res, 409, "Order request is still being processed");
+            }
+            return res.status(200).json({
+                status: "GOOD", message: "Existing pending order returned",
+                reused: true,
+                order: {
+                    id: previous.id, payment_status: previous.payment_status,
+                    order_status: previous.order_status, subtotal: previous.subtotal,
+                    shipping_cost: previous.shipping_cost,
+                    tax_amount: previous.tax_amount, total: previous.total
+                }
+            });
+        }
 
         // Get only the cart authorized by middleware.
         const cartResult = userId
@@ -416,6 +481,12 @@ export const createOrder = async (req, res) => {
                 ]
             );
         }
+
+        // Publish the created order in the same transaction as its line items.
+        await client.query(
+            `UPDATE order_creation_requests SET order_id = $1 WHERE id = $2`,
+            [order.id, reserved.rows[0].id]
+        );
 
         // The cart remains intact until we implement
         // the payment finalization strategy.

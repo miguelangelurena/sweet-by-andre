@@ -4,21 +4,27 @@ import Header from "./components/layout/Header";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import AdminProducts from "./pages/AdminProducts";
+import AdminOrders from "./pages/AdminOrders";
 import AdminGuard from "./components/auth/AdminGuard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./components/layout/AdminLayout";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import PaymentResult from "./pages/PaymentResult";
 
 export default function App() {
+  const paymentPath = window.location.pathname;
   const [hash, setHash] = useState(window.location.hash);
 
   useEffect(() => {
     const isPageRoute =
       hash === "#catalog" ||
       hash === "#cart" ||
+      hash === "#checkout" ||
       hash.startsWith("#product/") ||
       hash === "#admin/products" ||
+      hash === "#admin/orders" ||
       hash === "#admin/login" ||
       hash === "";
 
@@ -43,6 +49,12 @@ export default function App() {
     };
   }, []);
 
+  // Stripe redirects to pathname routes, not hash routes. Do not trust
+  // the redirect itself as proof of payment.
+  if (paymentPath === "/payment-success" || paymentPath === "/payment-cancelled") {
+    return <><Header /><PaymentResult kind={paymentPath === "/payment-success" ? "success" : "cancelled"} /></>;
+  }
+
   // -------------------------
   // ADMIN LOGIN
   // -------------------------
@@ -60,6 +72,19 @@ export default function App() {
       <AdminGuard>
         <AdminLayout>
           <AdminProducts />
+        </AdminLayout>
+      </AdminGuard>
+    );
+  }
+
+  // -------------------------
+  // ADMIN ORDERS (READ ONLY)
+  // -------------------------
+  if (hash === "#admin/orders") {
+    return (
+      <AdminGuard>
+        <AdminLayout>
+          <AdminOrders />
         </AdminLayout>
       </AdminGuard>
     );
@@ -92,7 +117,23 @@ export default function App() {
           onContinueShopping={() => {
             window.location.hash = "#catalog";
           }}
+          onCheckout={() => {
+            window.location.hash = "#checkout";
+          }}
         />
+      </>
+    );
+  }
+
+  // -------------------------
+  // GUEST CHECKOUT DETAILS
+  // -------------------------
+
+  if (hash === "#checkout") {
+    return (
+      <>
+        <Header />
+        <Checkout onBack={() => { window.location.hash = "#cart"; }} />
       </>
     );
   }

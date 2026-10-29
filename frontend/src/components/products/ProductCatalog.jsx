@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProducts } from "../../services/api";
+import { ProductGridSkeleton } from "../ui/Skeleton";
 
 export default function ProductCatalog() {
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(8);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -35,6 +37,8 @@ export default function ProductCatalog() {
       active = false;
     };
   }, []);
+
+  useEffect(() => { setVisibleCount(8); }, [selectedCategory]);
 
   const categories = useMemo(() => {
     const unique = new Map();
@@ -107,9 +111,7 @@ export default function ProductCatalog() {
       )}
 
       {loading && (
-        <p role="status" className="py-16 text-center text-[#756B69]">
-          Loading our sweet collection...
-        </p>
+        <ProductGridSkeleton count={8} className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
       )}
 
       {!loading && error && (
@@ -129,7 +131,7 @@ export default function ProductCatalog() {
 
       {!loading && !error && filteredProducts.length > 0 && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((product) => {
+          {filteredProducts.slice(0, visibleCount).map((product) => {
             const outOfStock = Number(product.stock) <= 0;
 
             return (
@@ -190,6 +192,18 @@ export default function ProductCatalog() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {!loading && !error && filteredProducts.length > visibleCount && (
+        <div className="mt-10 text-center">
+          <button type="button" onClick={() => setVisibleCount((count) => count + 8)}
+            className="rounded-full border border-[#B76473] bg-white px-8 py-3 font-semibold text-[#97495A] transition-colors hover:bg-[#FAEDEE]">
+            Show more products
+          </button>
+          <p className="mt-3 text-sm text-[#756B69]" aria-live="polite">
+            Showing {Math.min(visibleCount, filteredProducts.length)} of {filteredProducts.length} products
+          </p>
         </div>
       )}
 

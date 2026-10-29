@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProductById, getProductVariants } from "../services/api";
+import { ProductDetailSkeleton } from "../components/ui/Skeleton";
 
 // Set VITE_API_BASE_URL in frontend/.env to the Express origin (without /api).
 // For local development the default expects Express on port 3000.
@@ -211,11 +212,7 @@ export default function ProductDetail({ productId }) {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-[#FAF7F5] px-6 py-24 text-center text-[#796D6A]">
-        Loading product...
-      </main>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (error || !product) {

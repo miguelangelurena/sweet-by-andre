@@ -27,3 +27,44 @@ a {
 html {
   scroll-behavior: smooth;
 }
+
+
+/* Sweet by André — global interaction and accessibility baseline. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+select,
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #9d4357;
+  outline-offset: 3px;
+}
+
+:where(button, a) {
+  touch-action: manipulation;
+}
+
+/* A shared, accessible loading placeholder. */
+.sba-skeleton {
+  background: linear-gradient(105deg, #eee3df 18%, #f8f1ed 40%, #eee3df 62%);
+  background-size: 220% 100%;
+  animation: sba-shimmer 1.65s ease-in-out infinite;
+}
+
+@keyframes sba-shimmer {
+  to { background-position-x: -220%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sba-skeleton { animation: none; background: #eee3df; }
+  html { scroll-behavior: auto; }
+}

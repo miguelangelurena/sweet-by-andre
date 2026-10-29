@@ -39,7 +39,7 @@ async function getCsrfToken() {
   return data.csrf_token;
 }
 
-export default function Cart({ onContinueShopping }) {
+export default function Cart({ onContinueShopping, onCheckout }) {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyItemId, setBusyItemId] = useState(null);
@@ -308,12 +308,15 @@ export default function Cart({ onContinueShopping }) {
               )}
               <button
                 type="button"
-                disabled
-                title="Checkout will be enabled after order and payment integration"
-                className="mt-7 w-full cursor-not-allowed rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white opacity-55"
+                disabled={anyBusy || cart.has_price_changes || cart.has_unavailable_items || !onCheckout}
+                onClick={onCheckout}
+                className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Checkout — Coming Soon
+                Continue to delivery details
               </button>
+              <p className="mt-3 text-xs leading-5 text-[#796D6A]">
+                Online payment is not enabled yet. You can prepare a pending order.
+              </p>
             </aside>
           </div>
         )}

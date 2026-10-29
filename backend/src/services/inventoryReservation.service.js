@@ -197,3 +197,203 @@ export async function reserveInventoryForOrder(
 
     return reservations;
 }
+
+/**
+ * Commits previously reserved inventory for an order.
+ *
+ * IMPORTANT:
+ * - Caller must already have started a transaction.
+ * - Caller must verify the payment before invoking this.
+ * - Caller owns COMMIT / ROLLBACK.
+ * - All inventory changes are atomic.
+ *
+ * Returns:
+ * - committed: inventory was deducted.
+ * - already_committed: no additional deduction.
+ */
+export async function commitInventoryForOrder(client, orderId) {
+    // Serialize inventory operations for this order.
+    const orderResult = await client.query(
+        `
+        SELECT id
+        FROM orders
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [orderId]
+    );
+
+    if (!orderResult.rowCount) {
+        throw new ReservationError("Order not found", 404);
+    }
+
+    const reservationsResult = await client.query(
+        `
+        SELECT
+            id,
+            variant_id,
+            quantity,
+            status,
+            expires_at
+        FROM inventory_reservations
+        WHERE order_id = $1
+        ORDER BY variant_id
+        FOR UPDATE
+        `,
+        [orderId]
+    );
+
+    const reservations = reservationsResult.rows;
+
+    if (!reservations.length) {
+        throw new ReservationError(
+            "Order has no inventory reservations"
+        );
+    }
+
+    // A repeated webhook must not deduct stock twice.
+    if (reservations.every(r => r.status === "committed")) {
+        return {
+            status: "already_committed",
+            count: reservations.length
+        };
+    }
+
+    // Never commit mixed or released reservations.
+    if (reservations.some(r => r.status !== "reserved")) {
+        throw new ReservationError(
+            "Inventory reservations have inconsistent states"
+        );
+    }
+
+
+    // Verify reservations match the order items exactly.
+    const itemsResult = await client.query(
+        `
+        SELECT
+            variant_id,
+            SUM(quantity)::bigint AS quantity
+        FROM order_items
+        WHERE order_id = $1
+        GROUP BY variant_id
+        ORDER BY variant_id
+        `,
+        [orderId]
+    );
+
+    const orderItems = itemsResult.rows;
+
+    if (
+        orderItems.length === 0 ||
+        orderItems.length !== reservations.length
+    ) {
+        throw new ReservationError(
+            "Inventory reservations do not match order items"
+        );
+    }
+
+    const expectedQuantities = new Map();
+
+    for (const item of orderItems) {
+        const quantity = Number(item.quantity);
+
+        if (
+            !item.variant_id ||
+            !Number.isSafeInteger(quantity) ||
+            quantity <= 0
+        ) {
+            throw new ReservationError(
+                "Invalid order item quantity or variant"
+            );
+        }
+
+        expectedQuantities.set(item.variant_id, quantity);
+    }
+
+    for (const reservation of reservations) {
+        const expectedQuantity = expectedQuantities.get(
+            reservation.variant_id
+        );
+
+        if (
+            expectedQuantity === undefined ||
+            Number(reservation.quantity) !== expectedQuantity
+        ) {
+            throw new ReservationError(
+                "Inventory reservations do not match order items"
+            );
+        }
+    }
+
+
+    // Lock variants in deterministic order, matching
+    // reserveInventoryForOrder().
+    for (const reservation of reservations) {
+        const quantity = Number(reservation.quantity);
+
+        if (
+            !Number.isSafeInteger(quantity) ||
+            quantity <= 0
+        ) {
+            throw new ReservationError(
+                "Invalid reservation quantity"
+            );
+        }
+
+        const variantResult = await client.query(
+            `
+            SELECT id, stock
+            FROM product_variants
+            WHERE id = $1
+            FOR UPDATE
+            `,
+            [reservation.variant_id]
+        );
+
+        if (!variantResult.rowCount) {
+            throw new ReservationError(
+                "Reserved product variant not found"
+            );
+        }
+
+        if (Number(variantResult.rows[0].stock) < quantity) {
+            throw new ReservationError(
+                "Insufficient physical stock to commit reservation"
+            );
+        }
+
+        const updateResult = await client.query(
+            `
+            UPDATE product_variants
+            SET stock = stock - $2,
+                updated_at = NOW()
+            WHERE id = $1
+              AND stock >= $2
+            RETURNING stock
+            `,
+            [reservation.variant_id, quantity]
+        );
+
+        if (updateResult.rowCount !== 1) {
+            throw new ReservationError(
+                "Could not commit inventory safely"
+            );
+        }
+
+        await client.query(
+            `
+            UPDATE inventory_reservations
+            SET status = 'committed',
+                updated_at = NOW()
+            WHERE id = $1
+              AND status = 'reserved'
+            `,
+            [reservation.id]
+        );
+    }
+
+    return {
+        status: "committed",
+        count: reservations.length
+    };
+}
