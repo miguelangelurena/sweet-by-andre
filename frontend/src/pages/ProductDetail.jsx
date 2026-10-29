@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProductById, getProductVariants } from "../services/api";
 import { ProductDetailSkeleton } from "../components/ui/Skeleton";
+import MinimalSelect from "../components/ui/MinimalSelect";
+import { compareOptionLabels } from "../utils/naturalSort";
 
 // Set VITE_API_BASE_URL in frontend/.env to the Express origin (without /api).
 // For local development the default expects Express on port 3000.
@@ -114,7 +116,8 @@ export default function ProductDetail({ productId }) {
     }
     return [...groups.values()].map((group) => ({
       ...group,
-      values: [...group.values.values()],
+      // Numeric-aware ordering: 4" < 6" < 8" < 10", 2 pieces < 6 pieces.
+      values: [...group.values.values()].sort((a,b) => compareOptionLabels(a.label,b.label)),
     }));
   }, [variants]);
 
@@ -307,30 +310,13 @@ export default function ProductDetail({ productId }) {
               <div className="mt-8 space-y-5 border-t border-[#E7DCD9] pt-7">
                 {optionGroups.map((group) => (
                   <div key={group.id}>
-                    <label
-                      htmlFor={`product-option-${group.id}`}
-                      className="mb-2 block text-sm font-semibold text-[#282323]"
-                    >
-                      {group.name}
-                    </label>
-                    <select
-                      id={`product-option-${group.id}`}
+                    <p className="mb-2 text-sm font-semibold text-[#282323]">{group.name}</p>
+                    <MinimalSelect
+                      label={group.name}
                       value={selectedValues[group.id] ?? ""}
-                      onChange={(event) =>
-                        chooseValue(group.id, event.target.value)
-                      }
-                      className="w-full rounded-xl border border-[#E7DCD9] bg-white px-4 py-3 text-[#282323] outline-none focus:border-[#B76473]"
-                    >
-                      {group.values.map((value) => (
-                        <option
-                          key={value.id}
-                          value={value.id}
-                          disabled={!valueIsSelectable(group.id, value.id)}
-                        >
-                          {value.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(nextValue) => chooseValue(group.id, nextValue)}
+                      options={group.values.map((v) => ({ value: v.id, label: v.label, disabled: !valueIsSelectable(group.id, v.id) }))}
+                    />
                   </div>
                 ))}
               </div>

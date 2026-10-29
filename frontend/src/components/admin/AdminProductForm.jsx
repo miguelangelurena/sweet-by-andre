@@ -1,3 +1,4 @@
+import MinimalSelect from "../ui/MinimalSelect";
 import { useEffect, useState } from "react";
 import { createProduct, getCategories } from "../../services/api";
 
@@ -226,31 +227,15 @@ export default function AdminProductForm({ onClose, onCreated }) {
 
           <div>
             <label
-              htmlFor="product-category"
+              
               className="mb-2 block text-sm font-semibold text-[#282323]"
             >
               Category <span className="text-[#B76473]">*</span>
             </label>
-            <select
-              id="product-category"
-              name="category_id"
-              value={form.category_id}
-              onChange={handleChange}
-              disabled={loading || loadingCategories || categories.length === 0}
-              required
-              className={inputClass}
-            >
-              <option value="">
-                {loadingCategories
-                  ? "Loading categories..."
-                  : "Select a category"}
-              </option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <MinimalSelect label="Product category" value={form.category_id}
+              onChange={value=>setForm(prev=>({...prev,category_id:value}))}
+              disabled={loading || loadingCategories || categories.length===0}
+              options={[{value:"",label:loadingCategories?"Loading categories...":"Select a category"},...categories.map(c=>({value:c.id,label:c.name}))]} />
             {!loadingCategories && categories.length === 0 && (
               <p className="mt-2 text-sm text-amber-700">
                 No active categories are available. Create or activate a

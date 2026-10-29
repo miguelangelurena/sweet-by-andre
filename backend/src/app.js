@@ -15,6 +15,7 @@ import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/orders.routes.js";
 import paymentRouter from "./routes/payments.routes.js";
 import adminOrdersRouter from "./routes/admin-orders.routes.js";
+import adminDashboardRouter from "./routes/admin-dashboard.routes.js";
 import guestCartRoutes from "./routes/guestCart.routes.js";
 import seasonalRouter from "./routes/seasonal.routes.js";
 
@@ -116,6 +117,7 @@ app.use("/api", cartRouter);
 app.use("/api", orderRouter);
 app.use("/api", paymentRouter);
 app.use("/api/admin", adminOrdersRouter);
+app.use("/api/admin", adminDashboardRouter);
 app.use("/api", guestCartRoutes);
 
 export default app;

@@ -1,3 +1,4 @@
+import MinimalSelect from "../components/ui/MinimalSelect";
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../services/api";
 
@@ -433,18 +434,9 @@ export default function AdminOrders() {
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <label htmlFor="order-payment-filter" className="text-sm font-medium">Payment status</label>
-        <select
-          id="order-payment-filter"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          className="rounded-lg border border-[#E7DCD9] bg-white px-3 py-2 text-sm"
-        >
-          <option value="all">All payments</option>
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="failed">Failed</option>
-        </select>
+        <span className="text-sm font-medium">Payment status</span>
+        <div className="w-full min-w-44 sm:w-52"><MinimalSelect label="Payment status" value={filter} onChange={setFilter}
+          options={[{value:"all",label:"All payments"},{value:"pending",label:"Pending"},{value:"paid",label:"Paid"},{value:"failed",label:"Failed"}]} /></div>
         {!loading && !error && (
           <p className="text-sm text-[#756B69]" aria-live="polite">
             Showing {orders.length} of {pagination.total} orders
@@ -456,22 +448,13 @@ export default function AdminOrders() {
       <div className="mt-4 grid gap-3 rounded-2xl border border-[#E7DCD9] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Workload filters">
         <label className="flex flex-col gap-1 text-xs font-semibold text-[#756B69]">
           Fulfillment status
-          <select aria-label="Fulfillment status" value={orderFilter} onChange={(event) => setOrderFilter(event.target.value)}
-            className="min-h-11 rounded-xl border border-[#E7DCD9] bg-white px-3 text-sm font-normal text-[#282323]">
-            <option value="all">All statuses</option>
-            {Object.keys(NEXT_FULFILLMENT_ACTION).concat("completed", "cancelled").map((state) =>
-              <option key={state} value={state}>{statusLabel(state)}</option>)}
-          </select>
+          <MinimalSelect label="Fulfillment status" value={orderFilter} onChange={setOrderFilter}
+            options={[{value:"all",label:"All statuses"},...Object.keys(NEXT_FULFILLMENT_ACTION).concat("completed", "cancelled").map(state=>({value:state,label:statusLabel(state)}))]} />
         </label>
         <label className="flex flex-col gap-1 text-xs font-semibold text-[#756B69]">
           Delivery schedule
-          <select aria-label="Delivery schedule" value={deliveryWindow} onChange={(event) => setDeliveryWindow(event.target.value)}
-            className="min-h-11 rounded-xl border border-[#E7DCD9] bg-white px-3 text-sm font-normal text-[#282323]">
-            <option value="all">Any date</option>
-            <option value="today">Due today</option>
-            <option value="next7">Next 7 days</option>
-            <option value="overdue">Overdue</option>
-          </select>
+          <MinimalSelect label="Delivery schedule" value={deliveryWindow} onChange={setDeliveryWindow}
+            options={[{value:"all",label:"Any date"},{value:"today",label:"Due today"},{value:"next7",label:"Next 7 days"},{value:"overdue",label:"Overdue"}]} />
         </label>
         <label className="flex items-center gap-3 rounded-xl border border-[#E7DCD9] px-3 py-2 text-sm font-medium text-[#282323] lg:mt-5">
           <input type="checkbox" checked={workloadOnly} onChange={(event) => setWorkloadOnly(event.target.checked)}

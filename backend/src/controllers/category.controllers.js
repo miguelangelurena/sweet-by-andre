@@ -223,3 +223,21 @@ export const updateCategoryStatus = async (req, res) => {
         });
     }
 };
+
+// Admin-only listing: includes hidden categories and linked product counts.
+export const getAdminCategories = async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.name, c.description, c.is_active,
+        COUNT(p.id)::int AS product_count,
+        COUNT(p.id) FILTER (WHERE p.is_available = TRUE)::int AS available_product_count
+      FROM categories c LEFT JOIN products p ON p.category_id = c.id
+      GROUP BY c.id, c.name, c.description, c.is_active
+      ORDER BY LOWER(c.name), c.id
+    `);
+    return res.json({ status: "GOOD", categories: result.rows });
+  } catch (error) {
+    console.error("Admin categories error:", error);
+    return res.status(500).json({ status: "ERROR", message: "Could not load categories" });
+  }
+};

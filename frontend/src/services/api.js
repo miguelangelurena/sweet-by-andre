@@ -267,3 +267,15 @@ export async function startGuestStripeCheckout(orderId) {
         body: JSON.stringify({ order_id: orderId }),
     });
 }
+
+
+// Admin categories: all mutations require session CSRF.
+export function getAdminCategories() { return apiRequest("/admin/categories"); }
+export async function withAdminCsrf(endpoint, { method, body }) {
+    const token = await apiRequest("/cart/csrf-token");
+    if (!token?.csrf_token) throw new Error("Session security token unavailable");
+    return apiRequest(endpoint, { method, headers: { "X-CSRF-Token": token.csrf_token }, body: JSON.stringify(body) });
+}
+export const createAdminCategory = (data) => withAdminCsrf("/categories", { method: "POST", body: data });
+export const renameAdminCategory = (id, data) => withAdminCsrf(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
+export const setAdminCategoryActive = (id, is_active) => withAdminCsrf(`/categories/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { is_active } });

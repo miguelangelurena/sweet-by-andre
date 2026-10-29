@@ -1,3 +1,4 @@
+import MinimalSelect from "../ui/MinimalSelect";
 import { useEffect, useState } from "react";
 import { getCategories, updateProduct } from "../../services/api";
 import AdminProductVariants from "./AdminProductVariants";
@@ -195,29 +196,13 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
           </div>
 
           <div>
-            <label htmlFor="edit-category" className={labelClass}>
+            <label  className={labelClass}>
               Category
             </label>
-            <select
-              id="edit-category"
-              name="category_id"
-              value={form.category_id}
-              onChange={handleChange}
+            <MinimalSelect label="Product category" value={form.category_id}
+              onChange={value=>setForm(prev=>({...prev,category_id:value}))}
               disabled={loadingCategories || saving}
-              required
-              className={inputClass}
-            >
-              <option value="">
-                {loadingCategories
-                  ? "Loading categories..."
-                  : "Select a category"}
-              </option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+              options={[{value:"",label:loadingCategories?"Loading categories...":"Select a category"},...categories.map(c=>({value:c.id,label:c.name}))]} />
           </div>
 
           {error && (

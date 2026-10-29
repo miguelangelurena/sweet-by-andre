@@ -4,6 +4,7 @@ import { getAdminProducts, updateProductAvailability } from "../services/api";
 import AdminProductForm from "../components/admin/AdminProductForm";
 import AdminProductEdit from "../components/admin/AdminProductEdit";
 import AdminProductGallery from "../components/admin/AdminProductGallery";
+import AdminCategories from "../components/admin/AdminCategories";
 
 export default function AdminProducts() {
   // -------------------------
@@ -232,8 +233,8 @@ export default function AdminProducts() {
           {updatingAvailabilityId === product.id
             ? "Updating..."
             : product.is_available
-              ? "Deactivate"
-              : "Activate"}
+              ? "Hide from store"
+              : "Show in store"}
         </button>
       </div>
     );
@@ -288,6 +289,8 @@ export default function AdminProducts() {
           {showForm ? "Close Form" : "+ Add Product"}
         </button>
       </div>
+
+      <AdminCategories onChanged={loadProducts} />
 
       {success && (
         <p

@@ -1,3 +1,4 @@
+import MinimalSelect from "../ui/MinimalSelect";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -851,38 +852,17 @@ export default function AdminProductVariants({ productId }) {
                         return (
                           <div key={option.id}>
                             <label
-                              htmlFor={`variant-option-${option.id}`}
+                              
                               className="mb-2 block text-sm font-semibold text-[#453B39]"
                             >
                               {option.name}
                             </label>
-                            <select
-                              id={`variant-option-${option.id}`}
+                            <MinimalSelect label={option.name}
                               value={newVariant.selectedValues[option.id] ?? ""}
-                              onChange={(event) =>
-                                setNewVariant((previous) => ({
-                                  ...previous,
-                                  selectedValues: {
-                                    ...previous.selectedValues,
-                                    [option.id]: event.target.value,
-                                  },
-                                }))
-                              }
-                              disabled={saving || activeValues.length === 0}
-                              required
-                              className={inputClass}
-                            >
-                              <option value="">
-                                {activeValues.length === 0
-                                  ? "No active values available"
-                                  : `Select ${option.name}`}
-                              </option>
-                              {activeValues.map((value) => (
-                                <option key={value.id} value={value.id}>
-                                  {value.value}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={value => setNewVariant(prev=>({...prev,selectedValues:{...prev.selectedValues,[option.id]:value}}))}
+                              disabled={saving || activeValues.length===0}
+                              options={[{value:"",label:activeValues.length===0?"No active values available":`Select ${option.name}`},...activeValues.map(v=>({value:v.id,label:v.value}))]}
+                            />
                           </div>
                         );
                       })}
