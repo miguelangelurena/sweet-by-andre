@@ -142,6 +142,9 @@ export default function AdminOrders() {
   const [error, setError] = useState("");
   const [moreError, setMoreError] = useState("");
   const [filter, setFilter] = useState("all");
+  const [orderFilter, setOrderFilter] = useState("all");
+  const [deliveryWindow, setDeliveryWindow] = useState("all");
+  const [workloadOnly, setWorkloadOnly] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   const [selectedId, setSelectedId] = useState(null);
@@ -168,6 +171,9 @@ export default function AdminOrders() {
       offset: String(offset),
     });
     if (activeFilter !== "all") params.set("payment_status", activeFilter);
+    if (orderFilter !== "all") params.set("order_status", orderFilter);
+    if (deliveryWindow !== "all") params.set("delivery_window", deliveryWindow);
+    if (workloadOnly) params.set("workload", "active");
     return `/admin/orders?${params.toString()}`;
   }
 
@@ -200,7 +206,7 @@ export default function AdminOrders() {
       controller.abort();
       moreAbort.current?.abort();
     };
-  }, [filter, refreshVersion]);
+  }, [filter, orderFilter, deliveryWindow, workloadOnly, refreshVersion]);
 
   async function showMoreOrders() {
     if (loading || loadingMore || !pagination.has_more) return;
@@ -445,6 +451,37 @@ export default function AdminOrders() {
           </p>
         )}
         {loading && <Skeleton className="h-4 w-36" />}
+      </div>
+
+      <div className="mt-4 grid gap-3 rounded-2xl border border-[#E7DCD9] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Workload filters">
+        <label className="flex flex-col gap-1 text-xs font-semibold text-[#756B69]">
+          Fulfillment status
+          <select aria-label="Fulfillment status" value={orderFilter} onChange={(event) => setOrderFilter(event.target.value)}
+            className="min-h-11 rounded-xl border border-[#E7DCD9] bg-white px-3 text-sm font-normal text-[#282323]">
+            <option value="all">All statuses</option>
+            {Object.keys(NEXT_FULFILLMENT_ACTION).concat("completed", "cancelled").map((state) =>
+              <option key={state} value={state}>{statusLabel(state)}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold text-[#756B69]">
+          Delivery schedule
+          <select aria-label="Delivery schedule" value={deliveryWindow} onChange={(event) => setDeliveryWindow(event.target.value)}
+            className="min-h-11 rounded-xl border border-[#E7DCD9] bg-white px-3 text-sm font-normal text-[#282323]">
+            <option value="all">Any date</option>
+            <option value="today">Due today</option>
+            <option value="next7">Next 7 days</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-3 rounded-xl border border-[#E7DCD9] px-3 py-2 text-sm font-medium text-[#282323] lg:mt-5">
+          <input type="checkbox" checked={workloadOnly} onChange={(event) => setWorkloadOnly(event.target.checked)}
+            className="h-4 w-4 accent-[#B76473]" />
+          Active paid workload
+        </label>
+        <button type="button" onClick={() => { setFilter("all"); setOrderFilter("all"); setDeliveryWindow("all"); setWorkloadOnly(false); }}
+          className="min-h-11 rounded-xl border border-[#E7DCD9] px-3 text-sm font-semibold text-[#B76473] hover:bg-[#FAF0F1] lg:mt-5">
+          Clear filters
+        </button>
       </div>
 
       {error && (

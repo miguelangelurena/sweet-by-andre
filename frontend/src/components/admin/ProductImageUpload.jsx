@@ -13,6 +13,7 @@ export default function ProductImageUpload({
   const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
   const inputId = useId();
 
@@ -62,10 +63,14 @@ export default function ProductImageUpload({
 
     setUploading(true);
     setError("");
+    setSuccess("");
 
     try {
       await uploadProductImage(productId, file);
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = "";
       await onUploaded?.();
+      setSuccess("Photo added successfully.");
     } catch (err) {
       setError(err.message || "Unable to upload the image. Please try again.");
     } finally {
@@ -184,6 +189,7 @@ export default function ProductImageUpload({
           </div>
         </div>
 
+        {success && <p role="status" className="rounded-xl bg-green-50 p-4 text-sm text-green-800">{success}</p>}
         {error && (
           <p
             role="alert"

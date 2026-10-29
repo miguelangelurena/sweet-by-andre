@@ -1,0 +1,10 @@
+import express from "express";
+import { requireAuth } from "../middleware/requireAuth.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
+import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
+import { getSeasonalCollections, getAdminSeasonalCollections, updateAdminSeasonalCollection } from "../controllers/seasonal.controllers.js";
+const router = express.Router();
+router.get("/seasonal", getSeasonalCollections);
+router.get("/admin/seasonal", requireAuth, requireAdmin, getAdminSeasonalCollections);
+router.put("/admin/seasonal/:slug", requireAuth, requireAdmin, requireSessionCsrf, updateAdminSeasonalCollection);
+export default router;

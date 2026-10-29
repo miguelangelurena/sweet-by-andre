@@ -8,70 +8,67 @@ import { pool } from "../config/database.js";
 // Requests without pagination parameters preserve the original API behavior.
 export const getAdminOrders = async (req, res) => {
     try {
-        const { limit: limitRaw, offset: offsetRaw, payment_status: paymentStatus } = req.query;
+        const { limit: limitRaw, offset: offsetRaw, payment_status: paymentStatus,
+            order_status: orderStatus, delivery_window: deliveryWindow, workload } = req.query;
         const paginated = limitRaw !== undefined || offsetRaw !== undefined;
-        const validPaymentStatuses = new Set(["pending", "paid", "failed"]);
-
-        if (paymentStatus !== undefined && !validPaymentStatuses.has(paymentStatus)) {
-            return res.status(400).json({ status: "ERROR", message: "Invalid payment status filter" });
+        const paymentStates = new Set(["pending", "paid", "failed", "refund_pending", "refunded"]);
+        const orderStates = new Set(["pending", "confirmed", "preparing", "ready", "completed", "cancelled"]);
+        if ((paymentStatus !== undefined && !paymentStates.has(paymentStatus)) ||
+            (orderStatus !== undefined && !orderStates.has(orderStatus)) ||
+            (deliveryWindow !== undefined && !["today", "next7", "overdue"].includes(deliveryWindow)) ||
+            (workload !== undefined && workload !== "active")) {
+            return res.status(400).json({ status: "ERROR", message: "Invalid orders filter" });
         }
-
-        let limit = 20;
-        let offset = 0;
-
-        if (paginated) {
-            const rawLimit = limitRaw === undefined ? "20" : limitRaw;
-            const rawOffset = offsetRaw === undefined ? "0" : offsetRaw;
-            const validInteger = (value) => typeof value === "string" && /^(0|[1-9]\d*)$/.test(value);
-
-            if (!validInteger(rawLimit) || !validInteger(rawOffset)) {
-                return res.status(400).json({ status: "ERROR", message: "Invalid pagination parameters" });
-            }
-
-            limit = Number(rawLimit);
-            offset = Number(rawOffset);
-
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
-                !Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) {
-                return res.status(400).json({ status: "ERROR", message: "Invalid pagination range" });
-            }
+        const isPositiveInt = (value) => typeof value === "string" && /^(0|[1-9]\d*)$/.test(value);
+        const rawLimit = limitRaw ?? "20";
+        const rawOffset = offsetRaw ?? "0";
+        if (!isPositiveInt(rawLimit) || !isPositiveInt(rawOffset)) {
+            return res.status(400).json({ status: "ERROR", message: "Invalid pagination parameters" });
         }
-
-        const where = paymentStatus === undefined ? "" : "WHERE o.payment_status = $1";
-        const filterValues = paymentStatus === undefined ? [] : [paymentStatus];
-
-        const countResult = await pool.query(
-            `SELECT COUNT(*)::int AS total FROM orders o ${where}`,
-            filterValues
-        );
-        const total = countResult.rows[0].total;
-
-        const pageSql = paginated
-            ? `LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`
-            : "";
-        const values = paginated ? [...filterValues, limit, offset] : filterValues;
-
-        const result = await pool.query(
-            `
+        const limit = Number(rawLimit), offset = Number(rawOffset);
+        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
+            !Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) {
+            return res.status(400).json({ status: "ERROR", message: "Invalid pagination range" });
+        }
+        const conditions = [], values = [];
+        if (paymentStatus !== undefined) {
+            values.push(paymentStatus);
+            conditions.push(`o.payment_status = $${values.length}`);
+        }
+        if (orderStatus !== undefined) {
+            values.push(orderStatus);
+            conditions.push(`o.order_status = $${values.length}`);
+        }
+        if (workload === "active") {
+            conditions.push(`o.payment_status = 'paid' AND o.order_status IN ('pending','confirmed','preparing','ready')`);
+        }
+        // Filter by the date persisted on the order. Verify the DB timezone
+        // and migrate delivery_date to TIMESTAMPTZ before production.
+        const localDate = `o.delivery_date::date`;
+        const today = `(CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date`;
+        if (deliveryWindow === "today") conditions.push(`${localDate} = ${today}`);
+        if (deliveryWindow === "next7") conditions.push(`${localDate} >= ${today} AND ${localDate} < ${today} + 7`);
+        if (deliveryWindow === "overdue") conditions.push(`${localDate} < ${today}`);
+        const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const count = await pool.query(`SELECT COUNT(*)::int AS total FROM orders o ${where}`, values);
+        const total = count.rows[0].total;
+        const pageSql = paginated ? `LIMIT $${values.length + 1} OFFSET $${values.length + 2}` : "";
+        const params = paginated ? [...values, limit, offset] : values;
+        const ordering = workload === "active" || deliveryWindow !== undefined
+          ? "o.delivery_date ASC, o.id DESC" : "o.created_at DESC, o.id DESC";
+        const result = await pool.query(`
             SELECT o.id, o.user_id, o.total, o.payment_status,
-                   o.order_status, o.delivery_date
-            FROM orders o
-            ${where}
-            ORDER BY o.created_at DESC, o.id DESC
-            ${pageSql};
-            `,
-            values
-        );
-
+                   o.order_status, o.delivery_date, o.created_at,
+                   o.shipping_name
+            FROM orders o ${where}
+            ORDER BY ${ordering}
+            ${pageSql}
+        `, params);
         return res.status(200).json({
-            status: "GOOD",
-            orders: result.rows,
-            pagination: {
-                total,
-                limit: paginated ? limit : result.rows.length,
-                offset: paginated ? offset : 0,
-                has_more: paginated ? offset + result.rows.length < total : false
-            }
+            status: "GOOD", orders: result.rows,
+            pagination: { total, limit: paginated ? limit : result.rows.length,
+              offset: paginated ? offset : 0,
+              has_more: paginated ? offset + result.rows.length < total : false }
         });
     } catch (error) {
         console.error("Get admin orders error:", error);

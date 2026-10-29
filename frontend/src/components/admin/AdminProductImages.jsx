@@ -224,7 +224,7 @@ export default function AdminProductImages({
         <div className="rounded-2xl border border-dashed border-[#E7DCD9] bg-[#FAF7F5] px-5 py-12 text-center">
           <p className="font-medium text-[#282323]">No images yet</p>
           <p className="mt-1 text-sm text-[#756B69]">
-            Use Add Image in the product list to upload the first photo.
+            Use the upload area above to add the first photo.
           </p>
         </div>
       ) : (

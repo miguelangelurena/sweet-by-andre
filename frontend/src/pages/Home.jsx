@@ -1,3 +1,4 @@
+import SeasonalCollections from "../components/products/SeasonalCollections";
 import miniCheesecakes from "../assets/home/mini-cheesecakes-strawberry.jpg";
 import flanWhole from "../assets/home/flan-whole.png";
 import miniFlans from "../assets/home/mini-flans.jpg";
@@ -144,6 +145,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <SeasonalCollections compact />
 
       {/* Presentación */}
       <section id="about" className="bg-[#F1E5E2] px-6 py-20 text-center">

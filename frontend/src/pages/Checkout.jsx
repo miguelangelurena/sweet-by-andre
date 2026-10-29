@@ -25,7 +25,7 @@ const initialForm = {
   shipping_name: "", customer_email: "", customer_phone: "",
   shipping_street: "", shipping_street_number: "", shipping_unit: "",
   shipping_city: "", shipping_state: "TX", shipping_zip_code: "",
-  delivery_instructions: "", note: "", delivery_date: "",
+  delivery_instructions: "", note: "", delivery_date: "", sms_opt_in: false,
 };
 
 function minDeliveryLocal() {
@@ -75,8 +75,8 @@ export default function Checkout({ onBack }) {
     !cart?.has_unavailable_items && items.every((item) => item.is_available);
 
   function update(event) {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const { name, value, type, checked } = event.target;
+    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
   }
 
   async function submit(event) {
@@ -230,6 +230,11 @@ export default function Checkout({ onBack }) {
                     className="w-full rounded-xl border border-[#E7DCD9] px-3 py-3" />
                 </label>
               ))}
+              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7DCD9] bg-[#FFF9F8] p-4 text-sm leading-6">
+                <input type="checkbox" name="sms_opt_in" checked={form.sms_opt_in} onChange={update}
+                  disabled={submitting} className="mt-1 h-4 w-4 shrink-0 accent-[#B76473]" />
+                <span><strong>Optional SMS order updates.</strong> I agree to receive automated transactional text messages about this order from Sweet by André. Message and data rates may apply. Consent is not required to purchase.</span>
+              </label>
               <button type="submit" disabled={submitting}
                 className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:opacity-50">
                 {submitting ? "Saving pending order..." : "Create pending order (no payment)"}

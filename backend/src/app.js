@@ -16,6 +16,7 @@ import orderRouter from "./routes/orders.routes.js";
 import paymentRouter from "./routes/payments.routes.js";
 import adminOrdersRouter from "./routes/admin-orders.routes.js";
 import guestCartRoutes from "./routes/guestCart.routes.js";
+import seasonalRouter from "./routes/seasonal.routes.js";
 
 import { handleStripeWebhook } from "./controllers/stripe-webhook.controllers.js";
 
@@ -109,6 +110,7 @@ app.use(
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api", categoryRouter);
+app.use("/api", seasonalRouter);
 app.use("/api", productRouter);
 app.use("/api", cartRouter);
 app.use("/api", orderRouter);

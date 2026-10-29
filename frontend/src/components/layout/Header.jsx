@@ -9,6 +9,7 @@ export default function Header() {
   const links = [
     { label: "Home", href: "#home" },
     { label: "Menu", href: "#menu" },
+    { label: "Seasonal", href: "#seasonal" },
     { label: "Gallery", href: "#gallery" },
     { label: "About Us", href: "#about" },
     { label: "Contact", href: "#contact" },

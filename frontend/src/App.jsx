@@ -12,6 +12,8 @@ import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import PaymentResult from "./pages/PaymentResult";
+import AdminSeasonal from "./pages/AdminSeasonal";
+import SeasonalCollections from "./components/products/SeasonalCollections";
 
 export default function App() {
   const paymentPath = window.location.pathname;
@@ -20,6 +22,8 @@ export default function App() {
   useEffect(() => {
     const isPageRoute =
       hash === "#catalog" ||
+      hash === "#seasonal" ||
+      hash === "#admin/seasonal" ||
       hash === "#cart" ||
       hash === "#checkout" ||
       hash.startsWith("#product/") ||
@@ -88,6 +92,14 @@ export default function App() {
         </AdminLayout>
       </AdminGuard>
     );
+  }
+
+  if (hash === "#admin/seasonal") {
+    return <AdminGuard><AdminLayout><AdminSeasonal /></AdminLayout></AdminGuard>;
+  }
+
+  if (hash === "#seasonal") {
+    return <><Header /><SeasonalCollections /></>;
   }
 
   // -------------------------

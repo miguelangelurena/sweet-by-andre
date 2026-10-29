@@ -44,7 +44,8 @@ export const createOrder = async (req, res) => {
         note,
         delivery_date,
         customer_email,
-        customer_phone
+        customer_phone,
+        sms_opt_in = false
     } = body;
 
     // The same logical checkout must reuse the same UUID, including after a timeout.
@@ -59,7 +60,7 @@ export const createOrder = async (req, res) => {
         shipping_name, shipping_street, shipping_street_number,
         shipping_unit ?? "", shipping_city, shipping_state,
         shipping_zip_code, delivery_instructions ?? "", note ?? "",
-        delivery_date, customer_email, customer_phone
+        delivery_date, customer_email, customer_phone, sms_opt_in
     ].map(value => typeof value === "string" ? value.trim() : value);
     const payloadHash = createHash("sha256")
         .update(JSON.stringify(payloadSnapshot)).digest("hex");
@@ -106,6 +107,16 @@ export const createOrder = async (req, res) => {
                 body[field].length > 2000)
         ) {
             return fail(res, 400, `${field} is invalid`);
+        }
+    }
+
+    if (typeof sms_opt_in !== "boolean") {
+        return fail(res, 400, "sms_opt_in must be a boolean");
+    }
+    if (sms_opt_in) {
+        const phoneDigits = customer_phone.replace(/[\s().+-]/g, "");
+        if (!/^(?:1)?\d{10}$/.test(phoneDigits) || phoneDigits.length > 11) {
+            return fail(res, 400, "SMS opt-in requires a valid US phone number");
         }
     }
 
@@ -404,6 +415,7 @@ export const createOrder = async (req, res) => {
                 guest_cart_id,
                 customer_email,
                 customer_phone,
+                sms_opt_in,
                 shipping_name,
                 shipping_street,
                 shipping_street_number,
@@ -424,7 +436,7 @@ export const createOrder = async (req, res) => {
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
-                $15, $16, $17, $18, 'pending', 'pending'
+                $15, $16, $17, $18, $19, 'pending', 'pending'
             )
             RETURNING *;
             `,
@@ -433,6 +445,7 @@ export const createOrder = async (req, res) => {
                 userId ? null : cartId,
                 customer_email.trim().toLowerCase(),
                 customer_phone.trim(),
+                sms_opt_in,
                 shipping_name.trim(),
                 shipping_street.trim(),
                 shipping_street_number.trim(),

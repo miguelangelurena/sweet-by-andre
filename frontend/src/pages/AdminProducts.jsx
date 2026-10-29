@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getAdminProducts, updateProductAvailability } from "../services/api";
 
 import AdminProductForm from "../components/admin/AdminProductForm";
-import ProductImageUpload from "../components/admin/ProductImageUpload";
 import AdminProductEdit from "../components/admin/AdminProductEdit";
-import AdminProductImages from "../components/admin/AdminProductImages";
+import AdminProductGallery from "../components/admin/AdminProductGallery";
 
 export default function AdminProducts() {
   // -------------------------
@@ -18,7 +17,6 @@ export default function AdminProducts() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [imageProduct, setImageProduct] = useState(null);
 
   const [updatingAvailabilityId, setUpdatingAvailabilityId] = useState(null);
   const [managingImagesProduct, setManagingImagesProduct] = useState(null);
@@ -82,7 +80,7 @@ export default function AdminProducts() {
       `${product.name} was created successfully. You can now upload a photo.`,
     );
 
-    setImageProduct(product);
+    setManagingImagesProduct(product);
 
     await loadProducts();
   }
@@ -94,7 +92,6 @@ export default function AdminProducts() {
   function handleEditProduct(product) {
     setEditingProduct(product);
     setShowForm(false);
-    setImageProduct(null);
     setSuccess("");
     setError("");
     setManagingImagesProduct(null);
@@ -112,7 +109,6 @@ export default function AdminProducts() {
     if (
       !showForm &&
       !editingProduct &&
-      !imageProduct &&
       !managingImagesProduct
     ) {
       return;
@@ -126,30 +122,15 @@ export default function AdminProducts() {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [showForm, editingProduct, imageProduct, managingImagesProduct]);
+  }, [showForm, editingProduct, managingImagesProduct]);
 
-  // -------------------------
-  // UPLOAD IMAGE
-  // -------------------------
-
-  function handleAddImage(product) {
-    setImageProduct(product);
-    setManagingImagesProduct(null);
+  // A single photo workspace handles upload + management.
+  function handlePhotos(product) {
+    setManagingImagesProduct(product);
     setShowForm(false);
     setEditingProduct(null);
     setSuccess("");
     setError("");
-  }
-
-  async function handleImageUploaded() {
-    setImageProduct(null);
-    setSuccess("Product image uploaded successfully.");
-
-    await loadProducts();
-  }
-
-  function handleImageCancel() {
-    setImageProduct(null);
   }
 
   // -------------------------
@@ -164,7 +145,6 @@ export default function AdminProducts() {
 
     setShowForm(true);
     setEditingProduct(null);
-    setImageProduct(null);
     setManagingImagesProduct(null);
     setSuccess("");
     setError("");
@@ -213,15 +193,6 @@ export default function AdminProducts() {
     }
   }
 
-  function handleManageImages(product) {
-    setManagingImagesProduct(product);
-    setEditingProduct(null);
-    setImageProduct(null);
-    setShowForm(false);
-    setError("");
-    setSuccess("");
-  }
-
   function renderActions(product, mobile = false) {
     const base = mobile
       ? "min-h-11 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors"
@@ -247,17 +218,10 @@ export default function AdminProducts() {
         </button>
         <button
           type="button"
-          onClick={() => handleAddImage(product)}
+          onClick={() => handlePhotos(product)}
           className={`${base} ${neutral}`}
         >
-          Add Image
-        </button>
-        <button
-          type="button"
-          onClick={() => handleManageImages(product)}
-          className={`${base} ${neutral}`}
-        >
-          Manage Images
+          Photos
         </button>
         <button
           type="button"
@@ -361,21 +325,9 @@ export default function AdminProducts() {
             />
           </div>
         )}
-        {imageProduct && (
-          <div className="mb-8 min-w-0">
-            <p className="mb-3 text-sm font-medium text-[#282323]">
-              Adding image for: {imageProduct.name}
-            </p>
-            <ProductImageUpload
-              productId={imageProduct.id}
-              onUploaded={handleImageUploaded}
-              onCancel={handleImageCancel}
-            />
-          </div>
-        )}
         {managingImagesProduct && (
           <div className="mb-10 min-w-0">
-            <AdminProductImages
+            <AdminProductGallery
               key={managingImagesProduct.id}
               product={managingImagesProduct}
               onClose={() => setManagingImagesProduct(null)}
@@ -386,7 +338,9 @@ export default function AdminProducts() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-[#756B69]">Loading products...</p>
+        <div role="status" aria-label="Loading products" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({length:6},(_,i)=><div key={i} className="sba-skeleton h-48 rounded-2xl" />)}
+        </div>
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-[#E7DCD9] bg-white p-8 text-center text-sm text-[#756B69]">
           No products found.
