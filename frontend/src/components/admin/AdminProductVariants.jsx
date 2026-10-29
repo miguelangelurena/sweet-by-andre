@@ -1,4 +1,5 @@
 import MinimalSelect from "../ui/MinimalSelect";
+import VariantPriceMatrix from "./VariantPriceMatrix";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -663,6 +664,22 @@ export default function AdminProductVariants({ productId }) {
                 </p>
               </div>
 
+              {options.some((option) => option.name.trim().toLowerCase() === "flavor") &&
+                options.some((option) => option.name.trim().toLowerCase() === "size") &&
+                options.length === 2 && (
+                  <VariantPriceMatrix
+                    options={options}
+                    variants={variants}
+                    onSaved={async () => {
+                      const response = await getAdminProductVariants(productId);
+                      setVariants(response.variants ?? []);
+                      setSuccess("Variant saved successfully.");
+                    }}
+                  />
+                )}
+
+              <details className="rounded-xl border border-[#E7DCD9] bg-white p-3" open={options.length !== 2 || !options.some((option) => option.name.trim().toLowerCase() === "flavor")}>
+                <summary className="cursor-pointer px-2 py-3 text-sm font-semibold text-[#B76473]">Advanced variant management · view all configurations</summary>
               {variants.length === 0 ? (
                 <p className="rounded-xl bg-[#FAF7F5] p-5 text-sm text-[#756B69]">
                   No variants configured yet.
@@ -959,6 +976,7 @@ export default function AdminProductVariants({ productId }) {
                   </div>
                 </form>
               </div>
+              </details>
             </div>
           </>
         )}
