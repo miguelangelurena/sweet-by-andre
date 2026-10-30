@@ -1,6 +1,7 @@
 
 import {
-    buildStripeCheckoutRequest
+    buildStripeCheckoutRequest,
+    createStripeCheckoutSession
 } from "./stripeCheckout.service.js";
 
 /**
@@ -67,12 +68,28 @@ export async function startCheckout(
             });
         }
 
-        // Never recreate a session for an uncertain
-        // or otherwise inconsistent attempt.
-        return {
-            status: "reconciliation_required",
-            attemptId: attempt.id
-        };
+        // Replay an incomplete creation only within Stripe's minimum
+        // 24-hour idempotency retention window (with a one-hour margin).
+        // Keep the persisted key and expiration; never reserve stock again.
+        const age = Date.now() - new Date(attempt.created_at).getTime();
+        const remaining = new Date(attempt.expires_at).getTime() - Date.now();
+        const canReplay =
+            attempt.status === "creating" &&
+            attempt.stripe_session_id === null &&
+            attempt.payment_id === null &&
+            typeof attempt.idempotency_key === "string" &&
+            Number.isFinite(age) && age >= 0 &&
+            age < 23 * 60 * 60 * 1000 &&
+            Number.isFinite(remaining) &&
+            remaining >= 31 * 60 * 1000 &&
+            remaining <= 24 * 60 * 60 * 1000;
+
+        if (!canReplay) {
+            return {
+                status: "reconciliation_required",
+                attemptId: attempt.id
+            };
+        }
     }
 
     // Step 2: Load trusted server-side order data.
@@ -103,10 +120,7 @@ export async function startCheckout(
     // Step 3: Remote operation, outside DB transaction.
     // A failed or ambiguous request remains 'creating'.
     const session =
-        await stripeClient.checkout.sessions.create(
-            request.params,
-            request.requestOptions
-        );
+        await createStripeCheckoutSession(stripeClient, request);
 
     // Step 4: Verify the returned session.
     const expectedAmount =

@@ -158,7 +158,9 @@ export default function Checkout({ onBack }) {
         </button>
         <h1 className="mb-3 mt-7 font-serif text-4xl sm:text-5xl">Delivery details</h1>
         <p className="mb-8 text-sm text-[#796D6A]">
-          Prepare your order. Online payments are not available yet; no charge will be made.
+          {paymentsEnabled
+            ? "Prepare your order. Full payment is collected through Stripe Checkout."
+            : "Prepare your order. Online payments are not available yet; no charge will be made."}
         </p>
 
         {error && <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}

@@ -216,3 +216,68 @@ test("resumes an existing open Checkout without creating another", async () => {
     assert.equal(calls.stripe, 0);
     assert.equal(calls.attach, 0);
 });
+
+function incompleteAttempt(overrides = {}) {
+    return {
+        id: attemptId,
+        status: "creating",
+        stripe_session_id: null,
+        payment_id: null,
+        idempotency_key: idempotencyKey,
+        created_at: new Date(Date.now() - 60_000).toISOString(),
+        expires_at: expiresAt,
+        ...overrides
+    };
+}
+
+test("recovers a lost creation response using identical Stripe parameters and key", async () => {
+    const { deps, calls } = makeDependencies();
+    const create = deps.stripeClient.checkout.sessions.create;
+    let originalParams;
+    let originalOptions;
+    let remoteSession;
+    let requests = 0;
+    deps.stripeClient.checkout.sessions.create = async (params, options) => {
+        requests++;
+        if (requests === 1) {
+            originalParams = structuredClone(params);
+            originalOptions = structuredClone(options);
+            remoteSession = await create(params, options);
+            throw new Error("Response lost after Stripe created the session");
+        }
+        assert.deepEqual(params, originalParams);
+        assert.deepEqual(options, originalOptions);
+        return remoteSession;
+    };
+
+    await assert.rejects(() => startCheckout(input, deps), /Response lost/);
+    assert.equal(calls.attach, 0);
+    deps.prepare = async () => ({ reused: true, attempt: incompleteAttempt() });
+    const result = await startCheckout(input, deps);
+    assert.equal(result.status, "ready");
+    assert.equal(requests, 2);
+    assert.equal(calls.stripe, 1);
+    assert.equal(calls.attach, 1);
+});
+
+test("does not replay old, expired, or inconsistent incomplete attempts", async () => {
+    const cases = [
+        { created_at: undefined },
+        { created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
+        { created_at: new Date(Date.now() + 60_000).toISOString() },
+        { expires_at: new Date(Date.now() - 60_000).toISOString() },
+        { expires_at: new Date(Date.now() + 30 * 60_000).toISOString() },
+        { stripe_session_id: "cs_test_uncertain" },
+        { payment_id: "existing-payment" },
+        { status: "failed" },
+        { idempotency_key: undefined }
+    ];
+    for (const overrides of cases) {
+        const { deps, calls } = makeDependencies();
+        deps.prepare = async () => ({ reused: true, attempt: incompleteAttempt(overrides) });
+        const result = await startCheckout(input, deps);
+        assert.equal(result.status, "reconciliation_required", JSON.stringify(overrides));
+        assert.equal(calls.stripe, 0);
+        assert.equal(calls.attach, 0);
+    }
+});

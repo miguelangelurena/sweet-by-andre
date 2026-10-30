@@ -97,6 +97,7 @@ export async function prepareCheckoutAttempt({
                 idempotency_key,
                 stripe_session_id,
                 status,
+                created_at,
                 expires_at
             FROM checkout_attempts
             WHERE order_id = $1
@@ -164,6 +165,7 @@ export async function prepareCheckoutAttempt({
                 idempotency_key,
                 stripe_session_id,
                 status,
+                created_at,
                 expires_at
             `,
             [order.id, expiration]

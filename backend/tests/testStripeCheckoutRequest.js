@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-    buildStripeCheckoutRequest
+    buildStripeCheckoutRequest,
+    createStripeCheckoutSession
 } from "../src/services/stripeCheckout.service.js";
 
 const input = {
@@ -15,6 +16,72 @@ const input = {
     now: new Date("2026-10-26T18:00:00Z"),
     expiresAt: "2026-10-26T20:00:00Z"
 };
+
+function stripeError(type, extra = {}) {
+    return Object.assign(new Error("Stripe request failed"), { type, ...extra });
+}
+
+test("migrates only a proven legacy parameter rejection with a deterministic key", async () => {
+    const request = buildStripeCheckoutRequest(input);
+    const rejection = stripeError("StripeInvalidRequestError", {
+        statusCode: 400, param: "payment_method_types",
+        message: "The payment_method_types parameter is no longer supported"
+    });
+    const migratedSessions = new Map();
+    let created = 0;
+    const stripeClient = { checkout: { sessions: { create: async (params, options) => {
+        if (options.idempotencyKey === request.requestOptions.idempotencyKey) {
+            if (Object.hasOwn(params, "allowed_payment_method_types")) {
+                throw stripeError("StripeIdempotencyError");
+            }
+            assert.deepEqual(params.payment_method_types, ["card"]);
+            throw rejection;
+        }
+        assert.equal(options.idempotencyKey, `${request.requestOptions.idempotencyKey}_allowed_cards_v1`);
+        assert.deepEqual(params, request.params);
+        if (!migratedSessions.has(options.idempotencyKey)) {
+            created++;
+            migratedSessions.set(options.idempotencyKey, { id: "cs_test_recovered" });
+        }
+        return migratedSessions.get(options.idempotencyKey);
+    } } } };
+    const first = await createStripeCheckoutSession(stripeClient, request);
+    const second = await createStripeCheckoutSession(stripeClient, request);
+    assert.deepEqual(first, second);
+    assert.equal(created, 1);
+});
+
+test("does not migrate uncertain or unrelated legacy outcomes", async () => {
+    for (const outcome of [
+        stripeError("StripeConnectionError"),
+        stripeError("StripeIdempotencyError"),
+        stripeError("StripeInvalidRequestError", { statusCode: 400, param: "currency" }),
+        stripeError("StripeInvalidRequestError", {
+            statusCode: 500, param: "payment_method_types", message: "no longer supported"
+        }),
+        { id: "cs_test_existing" }
+    ]) {
+        let calls = 0;
+        const stripeClient = { checkout: { sessions: { create: async () => {
+            calls++;
+            if (calls === 1) throw stripeError("StripeIdempotencyError");
+            if (outcome instanceof Error) throw outcome;
+            return outcome;
+        } } } };
+        await assert.rejects(() => createStripeCheckoutSession(stripeClient, buildStripeCheckoutRequest(input)));
+        assert.equal(calls, 2);
+    }
+});
+
+test("never changes the key on an initial connection failure", async () => {
+    let calls = 0;
+    const stripeClient = { checkout: { sessions: { create: async () => {
+        calls++;
+        throw stripeError("StripeConnectionError");
+    } } } };
+    await assert.rejects(() => createStripeCheckoutSession(stripeClient, buildStripeCheckoutRequest(input)));
+    assert.equal(calls, 1);
+});
 
 test("builds a deterministic Checkout request", () => {
     const first = buildStripeCheckoutRequest(input);
@@ -50,9 +117,10 @@ test("builds a deterministic Checkout request", () => {
     );
 
     assert.equal(
-        first.params.payment_method_types[0],
+        first.params.allowed_payment_method_types[0],
         "card"
     );
+    assert.equal(Object.hasOwn(first.params, "payment_method_types"), false);
 
     assert.equal(
         first.requestOptions.idempotencyKey,

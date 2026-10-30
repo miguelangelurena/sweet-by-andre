@@ -10,6 +10,45 @@
 const UUID_RE =
     /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
+/** Recover requests rejected by the removed payment_method_types parameter.
+ * Never change keys for a timeout or an ambiguous creation result.
+ */
+export async function createStripeCheckoutSession(stripeClient, request) {
+    const create = (params, options) =>
+        stripeClient.checkout.sessions.create(params, options);
+
+    try {
+        return await create(request.params, request.requestOptions);
+    } catch (error) {
+        if (error.type !== "StripeIdempotencyError") throw error;
+
+        // Reconstruct the previous request under its original key. A cached
+        // parameter rejection proves that request did not create a session.
+        const { allowed_payment_method_types, ...legacyParams } = request.params;
+        legacyParams.payment_method_types = allowed_payment_method_types;
+        try {
+            await create(legacyParams, request.requestOptions);
+        } catch (legacyError) {
+            if (
+                legacyError.type !== "StripeInvalidRequestError" ||
+                legacyError.statusCode !== 400 ||
+                legacyError.param !== "payment_method_types" ||
+                !legacyError.message?.includes("no longer supported")
+            ) throw legacyError;
+
+            // A deterministic suffix keeps migration retries idempotent too.
+            return create(request.params, {
+                ...request.requestOptions,
+                idempotencyKey:
+                    `${request.requestOptions.idempotencyKey}_allowed_cards_v1`
+            });
+        }
+        // A successful legacy response is not proof of rejection. Stop rather
+        // than starting another session with a different key.
+        throw error;
+    }
+}
+
 function toCents(amount) {
     const value = String(amount);
 
@@ -102,7 +141,7 @@ export function buildStripeCheckoutRequest({
     return {
         params: {
             mode: "payment",
-            payment_method_types: ["card"],
+            allowed_payment_method_types: ["card"],
 
             line_items: [
                 {
