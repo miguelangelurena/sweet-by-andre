@@ -74,7 +74,7 @@ test("guest purchase becomes a paid admin order and commits stock exactly once",
     ids.strangerCart = (await stranger.post("/api/guest/cart").set("Origin", origin).expect(201)).body.cart.id;
     await stranger.get(statusUrl).expect(404);
 
-    const checkout = () => guest.post("/api/payments/checkout").set("Origin", origin)
+    const checkout = () => guest.post("/api/guest/payments/checkout").set("Origin", origin)
       .set("X-CSRF-Token", csrf).send({ order_id: ids.order });
     const first = await checkout().expect(200);
     const resumed = await checkout().expect(200);
@@ -95,6 +95,22 @@ test("guest purchase becomes a paid admin order and commits stock exactly once",
     await admin.post("/api/auth/login").send({ email, password }).expect(200);
     const adminCsrf = (await admin.get("/api/cart/csrf-token").expect(200)).body.csrf_token;
     const adminUrl = `/api/admin/orders/${ids.order}`;
+    // A bakery administrator can shop as a guest in the same browser.
+    // Its session cookie must not replace the guest cart identity at payment.
+    await guest.post("/api/auth/login").send({ email, password }).expect(200);
+    const withAdminSession = await checkout().expect(200);
+    assert.equal(withAdminSession.body.checkoutUrl, first.body.checkoutUrl);
+    assert.equal(creations, 1);
+    await guest.get(adminUrl).expect(200);
+    await guest.post("/api/guest/payments/checkout").set("Origin", origin)
+      .send({ order_id: ids.order }).expect(403);
+    const guestSessionCsrf = (await guest.get("/api/cart/csrf-token").expect(200)).body.csrf_token;
+    await guest.post("/api/guest/payments/checkout").set("Origin", origin)
+      .set("X-CSRF-Token", guestSessionCsrf).send({ order_id: ids.order }).expect(403);
+    const strangerCsrf = (await stranger.get("/api/guest/cart/csrf-token").expect(200)).body.csrf_token;
+    await stranger.post("/api/guest/payments/checkout").set("Origin", origin)
+      .set("X-CSRF-Token", strangerCsrf).send({ order_id: ids.order }).expect(404);
+    assert.equal(creations, 1);
     await admin.patch(`${adminUrl}/status`).set("X-CSRF-Token", adminCsrf)
       .send({ target_status: "confirmed" }).expect(409);
 
@@ -141,6 +157,7 @@ test("guest purchase becomes a paid admin order and commits stock exactly once",
     if (previousSecret === undefined) delete process.env.STRIPE_WEBHOOK_SECRET;
     else process.env.STRIPE_WEBHOOK_SECRET = previousSecret;
     if (ids.admin) await admin.post("/api/auth/logout");
+    if (ids.admin) await guest.post("/api/auth/logout");
     if (ids.order) {
       for (const table of ["order_notification_outbox", "order_creation_requests", "checkout_attempts", "payments", "inventory_reservations", "order_items"]) {
         await pool.query(`DELETE FROM ${table} WHERE order_id = $1`, [ids.order]);

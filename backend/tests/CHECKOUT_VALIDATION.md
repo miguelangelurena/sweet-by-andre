@@ -12,6 +12,8 @@ does not contact Stripe or send customer notifications. It checks:
 
 - Guest cart creation, CSRF, order submission, and duplicate submission recovery.
 - Checkout creation and reuse of the same session.
+- Guest checkout while the same browser has an administrator session, with
+  guest CSRF and order ownership enforced independently of that session.
 - Rejection of invalid webhook signatures and access by another guest.
 - Payment confirmation and a duplicate webhook without double stock deduction.
 - Visibility of the paid order in administration and progression through
@@ -20,6 +22,13 @@ does not contact Stripe or send customer notifications. It checks:
 - Checkout expiration and inventory reservation release.
 
 ## Manual Stripe test still required
+
+Before paying locally, run `npm.cmd run stripe:listen` in a separate backend
+terminal and keep it running. This uses the test key from `.env`, forwards
+Checkout completion/expiration events to port 5000, and updates only the local
+`STRIPE_WEBHOOK_SECRET`. Restart the backend if the script reports a changed
+secret. A frontend and backend alone do not provide local webhook forwarding.
+This follows the [Stripe CLI forwarding workflow](https://github.com/stripe/stripe-cli/wiki/Listen-command).
 
 1. Start the backend and frontend. Use the exact origin in `FRONTEND_URL`
    (currently `http://localhost:5173`). If Vite selects another port, resolve
@@ -41,6 +50,13 @@ does not contact Stripe or send customer notifications. It checks:
 
 Automated results do not verify Stripe credentials, external webhook delivery,
 browser cookies, redirects, or the visual checkout flow.
+
+If a local test payment finished while forwarding was stopped, recover it with
+`npm.cmd run stripe:reconcile-test -- <order UUID>`. This reads the linked session
+from Stripe with the configured test key, verifies that it is paid and belongs
+to the order, then calls the same recovery and confirmation services used by
+the webhook. It is restricted to the development/test databases and does not
+make a new charge. It is a recovery tool, not a substitute for webhook delivery.
 
 The frontend build passes. The full frontend lint check currently reports
 existing React hook errors in multiple components; those remain separate work.

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "test:checkout": "node scripts/runCheckoutValidation.js"
+    "test:checkout": "node scripts/runCheckoutValidation.js",
+    "stripe:listen": "node scripts/listenStripeTestWebhooks.js",
+    "stripe:reconcile-test": "node scripts/reconcileTestCheckout.js"
   },
   "keywords": [],
   "author": "",

@@ -261,7 +261,7 @@ export async function startGuestStripeCheckout(orderId) {
         throw new Error("Invalid order identifier.");
     }
     const csrfToken = await getGuestCsrfToken();
-    return apiRequest("/payments/checkout", {
+    return apiRequest("/guest/payments/checkout", {
         method: "POST",
         headers: { "X-CSRF-Token": csrfToken },
         body: JSON.stringify({ order_id: orderId }),
