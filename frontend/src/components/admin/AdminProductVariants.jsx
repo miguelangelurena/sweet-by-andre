@@ -664,9 +664,9 @@ export default function AdminProductVariants({ productId }) {
                 </p>
               </div>
 
-              {options.some((option) => option.name.trim().toLowerCase() === "flavor") &&
-                options.some((option) => option.name.trim().toLowerCase() === "size") &&
-                options.length === 2 && (
+              {(options.length === 1 && options.some((option) => ["size", "cake size", "package size", "bites", "amount"].includes(option.name.trim().toLowerCase())) ||
+                options.length === 2 && options.some((option) => option.name.trim().toLowerCase() === "flavor") &&
+                options.some((option) => ["size", "cake size", "package size"].includes(option.name.trim().toLowerCase()))) && (
                   <VariantPriceMatrix
                     options={options}
                     variants={variants}
@@ -678,7 +678,7 @@ export default function AdminProductVariants({ productId }) {
                   />
                 )}
 
-              <details className="rounded-xl border border-[#E7DCD9] bg-white p-3" open={options.length !== 2 || !options.some((option) => option.name.trim().toLowerCase() === "flavor")}>
+              <details className="rounded-xl border border-[#E7DCD9] bg-white p-3">
                 <summary className="cursor-pointer px-2 py-3 text-sm font-semibold text-[#B76473]">Advanced variant management · view all configurations</summary>
               {variants.length === 0 ? (
                 <p className="rounded-xl bg-[#FAF7F5] p-5 text-sm text-[#756B69]">
