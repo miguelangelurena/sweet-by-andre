@@ -14,6 +14,8 @@ import Checkout from "./pages/Checkout";
 import PaymentResult from "./pages/PaymentResult";
 import AdminSeasonal from "./pages/AdminSeasonal";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminDelivery from "./pages/AdminDelivery";
+import AdminProduction from "./pages/AdminProduction";
 import SeasonalCollections from "./components/products/SeasonalCollections";
 
 export default function App() {
@@ -26,6 +28,8 @@ export default function App() {
       hash === "#seasonal" ||
       hash === "#admin/seasonal" ||
       hash === "#admin/dashboard" ||
+      hash === "#admin/delivery" ||
+      hash === "#admin/production" ||
       hash === "#cart" ||
       hash === "#checkout" ||
       hash.startsWith("#product/") ||
@@ -104,6 +108,13 @@ export default function App() {
 
   if (hash === "#admin/dashboard") {
     return <AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>;
+  }
+
+  if (hash === "#admin/delivery") {
+    return <AdminGuard><AdminLayout><AdminDelivery /></AdminLayout></AdminGuard>;
+  }
+  if (hash === "#admin/production") {
+    return <AdminGuard><AdminLayout><AdminProduction /></AdminLayout></AdminGuard>;
   }
 
   if (hash === "#admin/seasonal") {

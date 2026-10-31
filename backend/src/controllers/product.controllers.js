@@ -16,6 +16,7 @@ export const getProducts = async (req, res) => {
                 p.description,
                 p.price,
                 p.stock,
+                p.inventory_mode,
                 p.is_available,
 
                 c.id AS category_id,
@@ -49,7 +50,7 @@ export const getProducts = async (req, res) => {
 
                 WHERE v.product_id = p.id
                   AND v.is_available = TRUE
-                  AND v.stock > 0
+                  AND (p.inventory_mode = 'made_to_order' OR v.stock > 0)
 
                   AND (
                       SELECT COUNT(*)
@@ -100,6 +101,7 @@ export const getProductById = async (req, res) => {
                 p.description,
                 p.price,
                 p.stock,
+                p.inventory_mode,
                 p.is_available,
                 c.id AS category_id,
                 c.name AS category_name,
@@ -132,6 +134,7 @@ export const getProductById = async (req, res) => {
             description: result.rows[0].description,
             price: result.rows[0].price,
             stock: result.rows[0].stock,
+            inventory_mode: result.rows[0].inventory_mode,
             is_available: result.rows[0].is_available,
             category_id: result.rows[0].category_id,
             category_name: result.rows[0].category_name,
@@ -221,14 +224,16 @@ export const createProduct = async (req, res) => {
             name,
             description,
             price,
-            stock,
-            category_id
+            stock = 0,
+            category_id,
+            inventory_mode = "made_to_order"
         } = req.body;
 
         // -------------------------
         // VALIDATIONS
         // -------------------------
 
+        if (!["stock", "made_to_order"].includes(inventory_mode)) return res.status(400).json({ status: "ERROR", message: "Invalid sales mode" });
         if (typeof name !== "string" || name.trim() === "") {
             return res.status(400).json({
                 status: "ERROR",
@@ -306,9 +311,10 @@ export const createProduct = async (req, res) => {
                 description,
                 price,
                 stock,
-                category_id
+                category_id,
+                inventory_mode
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING
                 id,
                 name,
@@ -317,14 +323,16 @@ export const createProduct = async (req, res) => {
                 stock,
                 category_id,
                 is_available,
-                created_at;
+                created_at,
+                inventory_mode;
             `,
             [
                 name.trim(),
                 description ?? null,
                 price,
                 stock,
-                category_id.trim()
+                category_id.trim(),
+                inventory_mode
             ]
         );
 
@@ -1063,6 +1071,7 @@ export const getAdminProducts = async (req, res) => {
         p.description,
         p.price,
         p.stock,
+                p.inventory_mode,
         p.is_available,
         p.category_id,
         c.name AS category_name,

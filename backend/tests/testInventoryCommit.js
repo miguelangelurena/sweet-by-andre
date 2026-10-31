@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { pool } from "../src/config/database.js";
+after(() => pool.end());
 
 import {
     reserveInventoryForOrder,

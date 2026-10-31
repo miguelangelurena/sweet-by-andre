@@ -1,5 +1,6 @@
 
 import { pool } from "../config/database.js";
+import { commitOrderProduction } from "./production.service.js";
 
 import {
     commitInventoryForOrder
@@ -201,6 +202,7 @@ export async function confirmPaidCheckoutSession(session) {
 
             const inventory =
                 await commitInventoryForOrder(client, orderId);
+            await commitOrderProduction(client, orderId);
 
             if (inventory.status !== "already_committed") {
                 throw new CheckoutConfirmationError(
@@ -231,6 +233,7 @@ export async function confirmPaidCheckoutSession(session) {
         // 6. Commit inventory using the SAME transaction.
         const inventory =
             await commitInventoryForOrder(client, orderId);
+        await commitOrderProduction(client, orderId);
 
         if (inventory.status !== "committed") {
             throw new CheckoutConfirmationError(

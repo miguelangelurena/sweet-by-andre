@@ -181,7 +181,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
             <section aria-label="Cart items" className="space-y-4">
               {items.map((item) => {
                 const busy = anyBusy;
-                const itemStock = Number(item.variant_stock);
+                const itemStock = item.inventory_mode === "made_to_order" ? Number.MAX_SAFE_INTEGER : Number(item.variant_stock);
                 const unavailable = !item.is_available;
                 return (
                   <article

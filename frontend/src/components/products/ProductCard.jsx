@@ -7,7 +7,7 @@ const formatPrice = (price) => {
 
 export default function ProductCard({ product }) {
   const inStock =
-    product.has_available_variants && Number(product.total_stock) > 0;
+    product.has_available_variants && (product.inventory_mode === "made_to_order" || Number(product.total_stock) > 0);
 
   return (
     <a
@@ -56,7 +56,7 @@ export default function ProductCard({ product }) {
               inStock ? "text-[#B76473]" : "text-[#A29A97]"
             }`}
           >
-            {inStock ? "Available" : "Out of stock"}
+            {inStock ? product.inventory_mode === "made_to_order" ? "Made to order" : "Available" : "Unavailable"}
           </span>
         </div>
       </div>

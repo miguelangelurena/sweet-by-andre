@@ -12,8 +12,8 @@ export async function getAdminDashboard(req, res) {
           COUNT(*) FILTER (WHERE payment_status = 'paid' AND order_status IN ('pending','confirmed','preparing','ready'))::int AS active_orders,
           COUNT(*) FILTER (WHERE payment_status = 'paid' AND order_status = 'pending')::int AS awaiting_acceptance,
           COUNT(*) FILTER (WHERE payment_status = 'paid' AND order_status IN ('pending','confirmed','preparing','ready')
-             AND delivery_date::date >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date
-             AND delivery_date::date < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date + 7)::int AS next_seven_days,
+             AND COALESCE(service_date, delivery_date::date) >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date
+             AND COALESCE(service_date, delivery_date::date) < (CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date + 7)::int AS next_seven_days,
           COALESCE(SUM(total) FILTER (WHERE payment_status = 'paid'),0)::numeric(12,2) AS gross_paid_total
         FROM orders
       `),

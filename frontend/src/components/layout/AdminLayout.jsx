@@ -5,6 +5,8 @@ const NAV = [
   { href: "#admin/products", label: "Products" },
   { href: "#admin/orders", label: "Orders" },
   { href: "#admin/seasonal", label: "Seasonal" },
+  { href: "#admin/delivery", label: "Delivery & pickup" },
+  { href: "#admin/production", label: "Preparation & capacity" },
 ];
 
 export default function AdminLayout({ children }) {

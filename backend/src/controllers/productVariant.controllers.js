@@ -7,7 +7,7 @@ export const getProductVariants = async (req, res) => {
     try {
         const productResult = await pool.query(
             `
-            SELECT id, name
+            SELECT id, name, inventory_mode
             FROM products
             WHERE id = $1
             `,
@@ -28,6 +28,7 @@ export const getProductVariants = async (req, res) => {
                 pv.product_id,
                 pv.price,
                 pv.stock,
+                pv.production_points,
                 pv.is_available,
                 pv.created_at,
                 COALESCE(
@@ -89,7 +90,7 @@ export const getProductVariants = async (req, res) => {
 
             visibleVariants = variantsResult.rows.filter((variant) => {
                 // Variant must be available and have stock
-                if (!variant.is_available || variant.stock <= 0) {
+                if (!variant.is_available || (productResult.rows[0].inventory_mode === "stock" && variant.stock <= 0)) {
                     return false;
                 }
 

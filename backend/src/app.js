@@ -18,6 +18,8 @@ import adminOrdersRouter from "./routes/admin-orders.routes.js";
 import adminDashboardRouter from "./routes/admin-dashboard.routes.js";
 import guestCartRoutes from "./routes/guestCart.routes.js";
 import seasonalRouter from "./routes/seasonal.routes.js";
+import deliveryRouter from "./routes/delivery.routes.js";
+import productionRouter from "./routes/production.routes.js";
 
 import { handleStripeWebhook } from "./controllers/stripe-webhook.controllers.js";
 
@@ -57,7 +59,8 @@ app.use(
         allowedHeaders: [
             "Content-Type",
             "Authorization",
-            "X-CSRF-Token"
+            "X-CSRF-Token",
+            "Idempotency-Key"
         ]
     })
 );
@@ -112,6 +115,8 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api", categoryRouter);
 app.use("/api", seasonalRouter);
+app.use("/api", deliveryRouter);
+app.use("/api", productionRouter);
 app.use("/api", productRouter);
 app.use("/api", cartRouter);
 app.use("/api", orderRouter);

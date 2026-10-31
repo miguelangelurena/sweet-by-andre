@@ -1,5 +1,7 @@
 
 import { pool } from "../config/database.js";
+import { reserveOrderDelivery } from "./delivery.service.js";
+import { reserveOrderProduction } from "./production.service.js";
 
 import {
     reserveInventoryForOrder
@@ -148,6 +150,8 @@ export async function prepareCheckoutAttempt({
             order.id,
             expiration
         );
+        await reserveOrderDelivery(client, order.id, expiration);
+        await reserveOrderProduction(client, order.id, expiration);
 
         // 6. Persist the idempotency key.
         const attemptResult = await client.query(

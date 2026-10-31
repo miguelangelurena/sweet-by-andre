@@ -108,6 +108,8 @@ export const getGuestCart = async (req, res) => {
                 ci.quantity,
                 ci.price_at_added AS unit_price,
                 v.price AS current_unit_price,
+                p.inventory_mode,
+                v.production_points,
                 ci.price_at_added <> v.price AS price_changed,
                 ci.quantity * ci.price_at_added AS subtotal,
                 ci.quantity * v.price AS current_subtotal,
@@ -115,7 +117,7 @@ export const getGuestCart = async (req, res) => {
                     p.is_available = TRUE
                     AND c.is_active = TRUE
                     AND v.is_available = TRUE
-                    AND v.stock >= ci.quantity
+                    AND (p.inventory_mode='made_to_order' OR v.stock >= (SELECT SUM(other.quantity) FROM cart_items other WHERE other.cart_id=ci.cart_id AND other.variant_id=ci.variant_id))
                 ) AS is_available,
                 v.stock AS variant_stock,
                 COALESCE(

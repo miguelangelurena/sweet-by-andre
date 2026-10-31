@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { updateProductVariant } from "../../services/api";
 import { compareOptionLabels } from "../../utils/naturalSort";
 
-function VariantCell({ variant, label, onSaved }) {
+function VariantCell({ variant, label, onSaved, madeToOrder }) {
   const [price, setPrice] = useState(variant ? String(variant.price) : "");
   const [stock, setStock] = useState(variant ? String(variant.stock) : "");
   const [available, setAvailable] = useState(Boolean(variant?.is_available));
@@ -20,7 +20,7 @@ function VariantCell({ variant, label, onSaved }) {
     return <div className="rounded-xl bg-[#FAF7F5] p-4 text-xs text-[#867A77]">Not configured</div>;
   }
 
-  const changed = price !== String(variant.price) || stock !== String(variant.stock) || available !== Boolean(variant.is_available);
+  const changed = price !== String(variant.price) || (!madeToOrder && stock !== String(variant.stock)) || available !== Boolean(variant.is_available);
 
   async function save() {
     if (busy) return;
@@ -39,7 +39,7 @@ function VariantCell({ variant, label, onSaved }) {
     try {
       await updateProductVariant(variant.id, {
         price: nextPrice,
-        stock: nextStock,
+        ...(madeToOrder ? {} : { stock: nextStock }),
         is_available: available,
       });
       await onSaved?.();
@@ -58,12 +58,13 @@ function VariantCell({ variant, label, onSaved }) {
           value={price} onChange={(e) => setPrice(e.target.value)} disabled={busy}
           className="mt-1 w-full rounded-lg border border-[#E7DCD9] px-2.5 py-2 text-sm text-[#282323] focus-visible:outline-2 focus-visible:outline-[#B76473]" />
       </label>
-      <label className="block text-xs text-[#796D6A]">
+      <label className={`${madeToOrder ? "hidden" : "block"} text-xs text-[#796D6A]`}>
         Stock
         <input type="number" min="0" step="1" inputMode="numeric" aria-label={`${label} stock`}
           value={stock} onChange={(e) => setStock(e.target.value)} disabled={busy}
           className="mt-1 w-full rounded-lg border border-[#E7DCD9] px-2.5 py-2 text-sm text-[#282323] focus-visible:outline-2 focus-visible:outline-[#B76473]" />
       </label>
+      {madeToOrder && <p className="text-xs leading-5 text-[#796D6A]">Made to order · availability by date. Preparation load: {variant.production_points} points.</p>}
       <label className="flex cursor-pointer items-center gap-2 text-xs text-[#453B39]">
         <input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)}
           disabled={busy} aria-label={`${label} available for purchase`} className="accent-[#B76473]" />
@@ -83,7 +84,7 @@ function VariantCell({ variant, label, onSaved }) {
  * Flavor x Size / Package Size variants as a matrix.
  * Uses existing UUIDs; the SQL migration creates missing combinations.
  */
-export default function VariantPriceMatrix({ options, variants, onSaved }) {
+export default function VariantPriceMatrix({ options, variants, onSaved, madeToOrder=false }) {
   const sizeOption = useMemo(() => options.find((option) =>
     ["size", "cake size", "package size", "bites", "amount"].includes(option.name.trim().toLowerCase())), [options]);
   const flavorOption = useMemo(() => options.find((option) => option.name.trim().toLowerCase() === "flavor"), [options]);
@@ -110,7 +111,7 @@ export default function VariantPriceMatrix({ options, variants, onSaved }) {
     <section aria-label="Manage prices and stock" className="mb-7 rounded-2xl border border-[#E7DCD9] bg-[#FFFCFA] p-4 sm:p-5">
       <h4 className="font-serif text-xl text-[#282323]">{flavorOption ? "Prices by flavor & package" : "Prices by size / package"}</h4>
       <p className="mb-4 mt-2 text-sm text-[#796D6A]">
-        Manage prices and inventory without editing configurations one by one. A new variant starts with zero stock and is not for sale until you enable it.
+        {madeToOrder ? "Manage prices and pause variants here. Preparation capacity is checked for the customer's chosen date." : "Manage prices and inventory without editing configurations one by one. A new variant starts with zero stock and is not for sale until you enable it."}
       </p>
       <div className="overflow-x-auto">
         {flavorOption ? (
@@ -122,7 +123,7 @@ export default function VariantPriceMatrix({ options, variants, onSaved }) {
             <tbody>{flavors.map((flavor) => <tr key={flavor.id}>
               <th scope="row" className="px-2 pt-5 align-top text-sm font-semibold text-[#453B39]">{flavor.value}</th>
               {sizes.map((size) => <td key={size.id} className="align-top">
-                <VariantCell variant={findVariant(size.id, flavor.id)} label={`${flavor.value}, ${size.value}`} onSaved={onSaved} />
+                <VariantCell variant={findVariant(size.id, flavor.id)} label={`${flavor.value}, ${size.value}`} onSaved={onSaved} madeToOrder={madeToOrder} />
               </td>)}
             </tr>)}</tbody>
           </table>
@@ -130,7 +131,7 @@ export default function VariantPriceMatrix({ options, variants, onSaved }) {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {sizes.map((size) => <div key={size.id}>
               <h5 className="mb-2 text-sm font-semibold text-[#453B39]">{size.value} {sizeOption.name === "Package Size" ? "pieces" : ""}</h5>
-              <VariantCell variant={findVariant(size.id)} label={`${sizeOption.name}: ${size.value}`} onSaved={onSaved} />
+              <VariantCell variant={findVariant(size.id)} label={`${sizeOption.name}: ${size.value}`} onSaved={onSaved} madeToOrder={madeToOrder} />
             </div>)}
           </div>
         )}

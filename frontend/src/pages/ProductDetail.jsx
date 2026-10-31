@@ -232,8 +232,9 @@ export default function ProductDetail({ productId }) {
   }
 
   const images = product.images ?? [];
-  const inStock = Boolean(selectedVariant) && Number(selectedVariant.stock) > 0;
-  const maxQuantity = inStock ? Math.floor(Number(selectedVariant.stock)) : 0;
+  const madeToOrder = product.inventory_mode === "made_to_order";
+  const inStock = Boolean(selectedVariant) && (madeToOrder || Number(selectedVariant.stock) > 0);
+  const maxQuantity = inStock ? madeToOrder ? Number.MAX_SAFE_INTEGER : Math.floor(Number(selectedVariant.stock)) : 0;
   const subtotal = selectedVariant
     ? Number(selectedVariant.price) * quantity
     : 0;
@@ -327,8 +328,8 @@ export default function ProductDetail({ productId }) {
                 className={`text-sm font-semibold ${inStock ? "text-green-700" : "text-[#A29A97]"}`}
               >
                 {inStock
-                  ? `Available (${maxQuantity} in stock)`
-                  : "Out of stock"}
+                  ? madeToOrder ? "Made to order · date availability checked at checkout" : `Available (${maxQuantity} in stock)`
+                  : "Currently unavailable"}
               </p>
               <div className="mt-7">
                 <label className="text-sm font-semibold text-[#282323]">

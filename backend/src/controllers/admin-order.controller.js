@@ -42,9 +42,8 @@ export const getAdminOrders = async (req, res) => {
         if (workload === "active") {
             conditions.push(`o.payment_status = 'paid' AND o.order_status IN ('pending','confirmed','preparing','ready')`);
         }
-        // Filter by the date persisted on the order. Verify the DB timezone
-        // and migrate delivery_date to TIMESTAMPTZ before production.
-        const localDate = `o.delivery_date::date`;
+        // New orders persist their Houston service date explicitly.
+        const localDate = `COALESCE(o.service_date, o.delivery_date::date)`;
         const today = `(CURRENT_TIMESTAMP AT TIME ZONE 'America/Chicago')::date`;
         if (deliveryWindow === "today") conditions.push(`${localDate} = ${today}`);
         if (deliveryWindow === "next7") conditions.push(`${localDate} >= ${today} AND ${localDate} < ${today} + 7`);
@@ -59,7 +58,7 @@ export const getAdminOrders = async (req, res) => {
         const result = await pool.query(`
             SELECT o.id, o.user_id, o.total, o.payment_status,
                    o.order_status, o.delivery_date, o.created_at,
-                   o.shipping_name
+                   o.shipping_name, o.fulfillment_method, o.fulfillment_at
             FROM orders o ${where}
             ORDER BY ${ordering}
             ${pageSql}
@@ -83,9 +82,10 @@ export const getAdminOrderById = async (req, res) => {
     try {
         const orderResult = await pool.query(
             `
-            SELECT *
-            FROM orders
-            WHERE id = $1;
+            SELECT o.*, (SELECT r.points FROM production_reservations r WHERE r.order_id=o.id) AS preparation_points,
+              (SELECT r.status FROM production_reservations r WHERE r.order_id=o.id) AS preparation_status
+            FROM orders o
+            WHERE o.id = $1;
             `,
             [id]
         );

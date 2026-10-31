@@ -1,5 +1,6 @@
 
 import { pool } from "../config/database.js";
+import { releaseOrderProduction } from "./production.service.js";
 
 export class CheckoutExpirationError extends Error {
     constructor(message, status = 409) {
@@ -250,6 +251,7 @@ export async function expireCheckoutSession(session) {
             );
         }
 
+        await releaseOrderProduction(client, orderId);
         await client.query("COMMIT");
 
         return {

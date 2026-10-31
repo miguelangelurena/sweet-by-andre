@@ -81,10 +81,11 @@ export async function reserveInventoryForOrder(
         `
         SELECT
             variant_id,
+            inventory_mode,
             SUM(quantity)::bigint AS quantity
         FROM order_items
         WHERE order_id = $1
-        GROUP BY variant_id
+        GROUP BY variant_id, inventory_mode
         ORDER BY variant_id
         `,
         [orderId]
@@ -160,7 +161,7 @@ export async function reserveInventoryForOrder(
         const available =
             Number(variant.stock) - currentlyReserved;
 
-        if (available < requestedQuantity) {
+        if (item.inventory_mode === "stock" && available < requestedQuantity) {
             throw new ReservationError(
                 `Insufficient stock for variant ${item.variant_id}`
             );
@@ -173,9 +174,10 @@ export async function reserveInventoryForOrder(
                 variant_id,
                 quantity,
                 status,
-                expires_at
+                expires_at,
+                inventory_mode
             )
-            VALUES ($1, $2, $3, 'reserved', $4)
+            VALUES ($1, $2, $3, 'reserved', $4, $5)
             RETURNING
                 id,
                 order_id,
@@ -188,7 +190,8 @@ export async function reserveInventoryForOrder(
                 orderId,
                 item.variant_id,
                 requestedQuantity,
-                expiration
+                expiration,
+                item.inventory_mode
             ]
         );
 
@@ -233,6 +236,7 @@ export async function commitInventoryForOrder(client, orderId) {
             id,
             variant_id,
             quantity,
+            inventory_mode,
             status,
             expires_at
         FROM inventory_reservations
@@ -272,10 +276,11 @@ export async function commitInventoryForOrder(client, orderId) {
         `
         SELECT
             variant_id,
+            inventory_mode,
             SUM(quantity)::bigint AS quantity
         FROM order_items
         WHERE order_id = $1
-        GROUP BY variant_id
+        GROUP BY variant_id, inventory_mode
         ORDER BY variant_id
         `,
         [orderId]
@@ -307,12 +312,12 @@ export async function commitInventoryForOrder(client, orderId) {
             );
         }
 
-        expectedQuantities.set(item.variant_id, quantity);
+        expectedQuantities.set(`${item.variant_id}:${item.inventory_mode}`, quantity);
     }
 
     for (const reservation of reservations) {
         const expectedQuantity = expectedQuantities.get(
-            reservation.variant_id
+            `${reservation.variant_id}:${reservation.inventory_mode}`
         );
 
         if (
@@ -356,28 +361,27 @@ export async function commitInventoryForOrder(client, orderId) {
             );
         }
 
-        if (Number(variantResult.rows[0].stock) < quantity) {
+        if (reservation.inventory_mode === "stock" && Number(variantResult.rows[0].stock) < quantity) {
             throw new ReservationError(
                 "Insufficient physical stock to commit reservation"
             );
         }
 
-        const updateResult = await client.query(
-            `
-            UPDATE product_variants
-            SET stock = stock - $2,
-                updated_at = NOW()
-            WHERE id = $1
-              AND stock >= $2
-            RETURNING stock
-            `,
-            [reservation.variant_id, quantity]
-        );
-
-        if (updateResult.rowCount !== 1) {
-            throw new ReservationError(
-                "Could not commit inventory safely"
+        if (reservation.inventory_mode === "stock") {
+            const updateResult = await client.query(
+                `
+                UPDATE product_variants
+                SET stock = stock - $2,
+                    updated_at = NOW()
+                WHERE id = $1
+                  AND stock >= $2
+                RETURNING stock
+                `,
+                [reservation.variant_id, quantity]
             );
+            if (updateResult.rowCount !== 1) {
+                throw new ReservationError("Could not commit inventory safely");
+            }
         }
 
         await client.query(

@@ -36,7 +36,7 @@ const VARIANT_VALIDITY = `
 `;
 
 const loadVariant = (client, variantId) => client.query(`
-    SELECT v.id, v.product_id, v.price, v.stock,
+    SELECT v.id, v.product_id, v.price, v.stock, p.inventory_mode, v.production_points,
            (v.is_available AND p.is_available AND c.is_active
             AND (${VARIANT_VALIDITY})) AS purchasable
     FROM product_variants v
@@ -105,7 +105,7 @@ export const addCartItem = async (req, res) => {
             SELECT COALESCE(SUM(quantity), 0)::integer AS quantity
             FROM cart_items WHERE cart_id = $1 AND variant_id = $2
         `, [cartId, variant_id]);
-        if (Number(quantityResult.rows[0].quantity) + quantity > variant.stock) {
+        if (variant.inventory_mode === "stock" && Number(quantityResult.rows[0].quantity) + quantity > variant.stock) {
             await rollback(client);
             return fail(res, 409, `Only ${variant.stock} units are available for this variant`);
         }
@@ -134,12 +134,12 @@ export const getCart = async (req, res) => {
         const result = await pool.query(`
             SELECT ci.id, ci.product_id, ci.variant_id, p.name AS product_name,
                    ci.notes, ci.quantity, ci.price_at_added AS unit_price,
-                   v.price AS current_unit_price,
+                   v.price AS current_unit_price, p.inventory_mode, v.production_points,
                    (ci.price_at_added <> v.price) AS price_changed,
                    (ci.quantity * ci.price_at_added) AS subtotal,
                    (ci.quantity * v.price) AS current_subtotal,
-                   (v.is_available AND p.is_available AND c.is_active AND v.stock >= (SELECT COALESCE(SUM(ci2.quantity), 0) FROM cart_items ci2
-                                    WHERE ci2.cart_id = ci.cart_id AND ci2.variant_id = ci.variant_id)
+                   (v.is_available AND p.is_available AND c.is_active AND (p.inventory_mode='made_to_order' OR v.stock >= (SELECT COALESCE(SUM(ci2.quantity), 0) FROM cart_items ci2
+                                    WHERE ci2.cart_id = ci.cart_id AND ci2.variant_id = ci.variant_id))
                     AND (${VARIANT_VALIDITY})) AS is_available,
                    v.stock AS variant_stock,
                    COALESCE((
@@ -198,7 +198,7 @@ export const updateCartItem = async (req, res) => {
             SELECT COALESCE(SUM(quantity), 0)::integer AS quantity
             FROM cart_items WHERE cart_id = $1 AND variant_id = $2 AND id <> $3
         `, [cartId, variantId, id]);
-        if (Number(otherItemsResult.rows[0].quantity) + quantity > variantResult.rows[0].stock) {
+        if (variantResult.rows[0].inventory_mode === "stock" && Number(otherItemsResult.rows[0].quantity) + quantity > variantResult.rows[0].stock) {
             await rollback(client);
             return fail(res, 409, `Only ${variantResult.rows[0].stock} units are available for this variant`);
         }
@@ -258,7 +258,7 @@ export const acceptCartPriceChanges = async (req, res) => {
             }
             const totalQty = itemsResult.rows.filter((item) => item.variant_id === variantId)
                 .reduce((sum, item) => sum + item.quantity, 0);
-            if (totalQty > result.rows[0].stock) {
+            if (result.rows[0].inventory_mode === "stock" && totalQty > result.rows[0].stock) {
                 await rollback(client); return fail(res, 409, "Insufficient stock for one or more cart variants");
             }
         }

@@ -13,9 +13,10 @@ export async function apiRequest(endpoint, options = {}) {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-        throw new Error(
-            data?.message || `Request failed: ${response.status}`
-        );
+        const error = new Error(data?.message || `Request failed: ${response.status}`);
+        error.status = response.status;
+        error.code = data?.code;
+        throw error;
     }
 
     return data;
@@ -279,3 +280,15 @@ export async function withAdminCsrf(endpoint, { method, body }) {
 export const createAdminCategory = (data) => withAdminCsrf("/categories", { method: "POST", body: data });
 export const renameAdminCategory = (id, data) => withAdminCsrf(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data });
 export const setAdminCategoryActive = (id, is_active) => withAdminCsrf(`/categories/${encodeURIComponent(id)}/status`, { method: "PATCH", body: { is_active } });
+
+export const getDeliveryOptions = () => apiRequest("/delivery/options");
+export const getProductionOptions = () => apiRequest("/production/options");
+export const getAdminProduction = () => apiRequest("/admin/production");
+export const saveAdminProduction = (data) => withAdminCsrf("/admin/production", { method: "PUT", body: data });
+export const saveProductProduction = (id, data) => withAdminCsrf(`/admin/production/products/${encodeURIComponent(id)}`, { method: "PUT", body: data });
+export const getAdminDelivery = () => apiRequest("/admin/delivery");
+export const saveAdminDelivery = (data) => withAdminCsrf("/admin/delivery", { method: "PUT", body: data });
+export async function quoteGuestDelivery(address) {
+    const token = await getGuestCsrfToken();
+    return apiRequest("/guest/delivery/quote", { method: "POST", headers: { "X-CSRF-Token": token }, body: JSON.stringify(address) });
+}

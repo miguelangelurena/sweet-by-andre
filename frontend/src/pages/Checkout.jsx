@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
+import FulfillmentFields from "../components/checkout/FulfillmentFields";
 import {
   createGuestPendingOrder,
   ensureGuestCart,
   getGuestCart,
   startGuestStripeCheckout,
+  getDeliveryOptions,
+  quoteGuestDelivery,
+  getProductionOptions,
 } from "../services/api";
 
 const money = (value) =>
@@ -25,15 +29,9 @@ const initialForm = {
   shipping_name: "", customer_email: "", customer_phone: "",
   shipping_street: "", shipping_street_number: "", shipping_unit: "",
   shipping_city: "", shipping_state: "TX", shipping_zip_code: "",
-  delivery_instructions: "", note: "", delivery_date: "", sms_opt_in: false,
+  delivery_instructions: "", note: "", sms_opt_in: false,
+  fulfillment_method: "pickup", fulfillment_date: "", fulfillment_time: "",
 };
-
-function minDeliveryLocal() {
-  // Buffer avoids being rejected because the server validates a rolling 48h window.
-  const date = new Date(Date.now() + 49 * 60 * 60 * 1000);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
 
 const ORDER_REQUEST_KEY = "sba:pending-order-request:v1";
 
@@ -51,6 +49,12 @@ export default function Checkout({ onBack }) {
   const [error, setError] = useState("");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [deliveryHoldExpired, setDeliveryHoldExpired] = useState(false);
+  const [deliveryOptions, setDeliveryOptions] = useState(null);
+  const [productionOptions, setProductionOptions] = useState(null);
+  const [quote, setQuote] = useState(null);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
   const paymentsEnabled = import.meta.env.VITE_ENABLE_STRIPE_CHECKOUT === "true";
   const [order, setOrder] = useState(() => readSavedRequest()?.order ?? null);
 
@@ -59,8 +63,8 @@ export default function Checkout({ onBack }) {
     (async () => {
       try {
         await ensureGuestCart();
-        const data = await getGuestCart();
-        if (active) setCart(data.cart);
+        const [data, delivery, production] = await Promise.all([getGuestCart(), getDeliveryOptions(), getProductionOptions()]);
+        if (active) { setCart(data.cart); setDeliveryOptions(delivery.options); setProductionOptions(production.options); }
       } catch (err) {
         if (active) setError(err.message);
       } finally {
@@ -71,12 +75,27 @@ export default function Checkout({ onBack }) {
   }, []);
 
   const items = cart?.items ?? [];
+  const requiredProductionPoints = items.reduce((sum,item)=>sum+(item.inventory_mode==="made_to_order" ? Number(item.quantity)*Number(item.production_points) : 0),0);
+  const productionDay = productionOptions?.days.find(day=>day.date===form.fulfillment_date);
+  const productionUnavailable = requiredProductionPoints>0 && (!productionOptions || (form.fulfillment_date &&
+    (!productionDay || productionDay.closed || (productionDay.remaining!==null && productionDay.remaining<requiredProductionPoints))));
   const ready = items.length > 0 && !cart?.has_price_changes &&
     !cart?.has_unavailable_items && items.every((item) => item.is_available);
 
   function update(event) {
+    if (quoteBusy) return;
     const { name, value, type, checked } = event.target;
-    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value,
+      ...(["fulfillment_date", "fulfillment_method"].includes(name) ? { fulfillment_time: "" } : {}) }));
+    if (name.startsWith("shipping_") || name === "fulfillment_method") { setQuote(null); setQuoteError(""); }
+  }
+
+  async function calculateQuote() {
+    if (quoteBusy) return;
+    setQuoteBusy(true); setQuoteError(""); setQuote(null);
+    try { const result = await quoteGuestDelivery(form); setQuote(result.quote); }
+    catch (err) { setQuoteError(err.message); }
+    finally { setQuoteBusy(false); }
   }
 
   async function submit(event) {
@@ -95,14 +114,10 @@ export default function Checkout({ onBack }) {
         setCart(fresh.cart);
         throw new Error("Your cart needs review before creating an order.");
       }
-      const deliveryDate = new Date(form.delivery_date);
-      if (!Number.isFinite(deliveryDate.getTime()) ||
-          deliveryDate.getTime() < Date.now() + 48 * 60 * 60 * 1000) {
-        throw new Error("Choose a delivery date at least 48 hours from now.");
-      }
+      if (form.fulfillment_method === "delivery" && (!quote || new Date(quote.expires_at).getTime() <= Date.now())) throw new Error("Calculate a current delivery quote before placing the order.");
       const payload = {
         ...form,
-        delivery_date: deliveryDate.toISOString(),
+        delivery_quote_id: form.fulfillment_method === "delivery" ? quote.id : null,
       };
       // Persist the same request ID and payload before sending it. A network
       // timeout or refresh can then retry without creating a second order.
@@ -126,6 +141,10 @@ export default function Checkout({ onBack }) {
         JSON.stringify({ ...request, order: response.order }));
       setOrder(response.order);
     } catch (err) {
+      if ((err.code?.startsWith("DELIVERY_") || err.code?.startsWith("PRODUCTION_")) && !readSavedRequest()?.order) sessionStorage.removeItem(ORDER_REQUEST_KEY);
+      if (err.code?.startsWith("PRODUCTION_")) {
+        const fresh=await getProductionOptions().catch(()=>null);if(fresh)setProductionOptions(fresh.options);
+      }
       setError(err.message || "Could not create the order.");
     } finally {
       setSubmitting(false);
@@ -135,6 +154,7 @@ export default function Checkout({ onBack }) {
   async function proceedToStripe() {
     if (!order?.id || !paymentsEnabled || paymentBusy) return;
     setPaymentError("");
+    setDeliveryHoldExpired(false);
     setPaymentBusy(true);
     try {
       const result = await startGuestStripeCheckout(order.id);
@@ -145,6 +165,7 @@ export default function Checkout({ onBack }) {
       }
       window.location.assign(url.href);
     } catch (err) {
+      setDeliveryHoldExpired(["DELIVERY_HOLD_EXPIRED","PRODUCTION_HOLD_EXPIRED"].includes(err.code));
       setPaymentError(err.message || "Could not start payment.");
       setPaymentBusy(false);
     }
@@ -156,7 +177,7 @@ export default function Checkout({ onBack }) {
         <button type="button" onClick={onBack} className="text-sm font-semibold text-[#B76473] hover:underline">
           Back to cart
         </button>
-        <h1 className="mb-3 mt-7 font-serif text-4xl sm:text-5xl">Delivery details</h1>
+        <h1 className="mb-3 mt-7 font-serif text-4xl sm:text-5xl">Pickup &amp; delivery</h1>
         <p className="mb-8 text-sm text-[#796D6A]">
           {paymentsEnabled
             ? "Prepare your order. Full payment is collected through Stripe Checkout."
@@ -170,10 +191,17 @@ export default function Checkout({ onBack }) {
             <p className="mt-4 text-[#796D6A]">Your order has been saved, but it has not been paid or confirmed by the bakery.</p>
             <p className="mt-4 break-all text-sm"><strong>Order ID:</strong> {order.id}</p>
             <p className="mt-2 text-lg font-semibold">Total: {money(order.total)}</p>
+            <p className="mt-2 text-sm text-[#796D6A]">{order.fulfillment_method === "delivery" ? `Delivery fee: ${money(order.shipping_cost)}` : order.fulfillment_method === "pickup" ? "Pickup · no delivery fee" : "Contact the bakery to confirm fulfillment details."}</p>
             <div className="mt-7 rounded-2xl border border-[#E7DCD9] bg-[#FAF7F5] p-5">
               <h3 className="font-serif text-2xl">Payment</h3>
               <p className="mt-2 text-sm text-[#796D6A]">Full payment: {money(order.total)} (100%). A pending order is not a paid order.</p>
               {paymentError && <p role="alert" className="mt-3 text-sm text-red-700">{paymentError}</p>}
+              {deliveryHoldExpired && <button type="button" className="mt-3 text-sm font-semibold text-[#9E4F60] underline" onClick={() => {
+                const saved = readSavedRequest();
+                setForm({ ...initialForm, ...saved?.payload, fulfillment_time: "" });
+                sessionStorage.removeItem(ORDER_REQUEST_KEY); setOrder(null); setQuote(null);
+                setPaymentError(""); setDeliveryHoldExpired(false);
+              }}>Start a new order and check availability again</button>}
               <button type="button" onClick={proceedToStripe}
                 disabled={!paymentsEnabled || paymentBusy}
                 className="mt-4 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55">
@@ -195,9 +223,11 @@ export default function Checkout({ onBack }) {
         ) : (
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <form id="delivery-form" onSubmit={submit} className="rounded-3xl border border-[#E7DCD9] bg-white p-6 sm:p-8">
-              <h2 className="mb-6 font-serif text-2xl">Contact and delivery</h2>
+              <fieldset disabled={submitting || quoteBusy}>
+              <h2 className="mb-6 font-serif text-2xl">Contact and fulfillment</h2>
+              {deliveryOptions ? <FulfillmentFields form={form} update={update} options={deliveryOptions} production={productionOptions} requiredPoints={requiredProductionPoints} quote={quote} quoteBusy={quoteBusy} quoteError={quoteError} calculateQuote={calculateQuote} subtotalCents={Math.round(Number(cart?.current_total ?? 0) * 100)} /> : <p role="alert" className="mb-5 text-sm text-red-700">Could not load pickup and delivery options. Reload to try again.</p>}
               <div className="grid gap-4 sm:grid-cols-2">
-                {fields.map((field) => (
+                {fields.filter((field) => form.fulfillment_method === "delivery" || ["shipping_name", "customer_email", "customer_phone"].includes(field.name)).map((field) => (
                   <label key={field.name} className="block text-sm font-medium">
                     <span className="mb-1 block">{field.label}</span>
                     <input
@@ -214,17 +244,10 @@ export default function Checkout({ onBack }) {
                   </label>
                 ))}
               </div>
-              <label className="mt-5 block text-sm font-medium">
-                <span className="mb-1 block">Requested delivery date and time</span>
-                <input type="datetime-local" name="delivery_date" value={form.delivery_date}
-                  onChange={update} min={minDeliveryLocal()} required disabled={submitting}
-                  className="w-full rounded-xl border border-[#E7DCD9] px-3 py-3" />
-                <span className="mt-1 block text-xs font-normal text-[#796D6A]">At least 48 hours in advance. Availability is subject to bakery confirmation.</span>
-              </label>
               {[
                 ["delivery_instructions", "Delivery instructions (optional)"],
                 ["note", "Additional order note (optional)"],
-              ].map(([name, label]) => (
+              ].filter(([name]) => form.fulfillment_method === "delivery" || name !== "delivery_instructions").map(([name, label]) => (
                 <label key={name} className="mt-5 block text-sm font-medium">
                   <span className="mb-1 block">{label}</span>
                   <textarea name={name} value={form[name]} onChange={update} maxLength={2000}
@@ -237,10 +260,11 @@ export default function Checkout({ onBack }) {
                   disabled={submitting} className="mt-1 h-4 w-4 shrink-0 accent-[#B76473]" />
                 <span><strong>Optional SMS order updates.</strong> I agree to receive automated transactional text messages about this order from Sweet by André. Message and data rates may apply. Consent is not required to purchase.</span>
               </label>
-              <button type="submit" disabled={submitting}
+              <button type="submit" disabled={submitting || !deliveryOptions || Boolean(productionUnavailable) || (form.fulfillment_method === "delivery" && !quote)}
                 className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:opacity-50">
                 {submitting ? "Saving pending order..." : "Create pending order (no payment)"}
               </button>
+              </fieldset>
             </form>
             <aside className="rounded-3xl border border-[#E7DCD9] bg-white p-6">
               <h2 className="font-serif text-2xl">Order summary</h2>
@@ -253,8 +277,10 @@ export default function Checkout({ onBack }) {
               <div className="mt-5 flex justify-between border-t border-[#E7DCD9] pt-4 font-semibold">
                 <span>Estimated subtotal</span><span>{money(cart?.current_total)}</span>
               </div>
+              <div className="mt-3 flex justify-between text-sm"><span>{form.fulfillment_method === "delivery" ? "Delivery" : "Pickup"}</span><span>{form.fulfillment_method === "delivery" ? quote ? money(quote.fee_cents / 100) : "Calculate fee" : money(0)}</span></div>
+              <div className="mt-3 flex justify-between font-semibold"><span>Subtotal + fulfillment</span><span>{form.fulfillment_method === "delivery" && !quote ? "—" : money(Number(cart?.current_total ?? 0) + (form.fulfillment_method === "delivery" ? quote.fee_cents / 100 : 0))}</span></div>
               <p className="mt-4 text-xs leading-5 text-[#796D6A]">
-                Taxes and delivery are not yet calculated. These are provisional development values, not a final customer quote.
+                Delivery fees are verified by the server before payment. Tax calculation is still pending configuration.
               </p>
             </aside>
           </div>

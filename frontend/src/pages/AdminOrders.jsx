@@ -22,7 +22,7 @@ const formatDate = (value) => {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
     ? "Not provided"
-    : parsed.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+    : parsed.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Chicago" });
 };
 
 const statusLabel = (value) =>
@@ -482,7 +482,7 @@ export default function AdminOrders() {
               <th scope="col" className="p-4">Total</th>
               <th scope="col" className="p-4">Payment</th>
               <th scope="col" className="p-4">Order status</th>
-              <th scope="col" className="p-4">Delivery</th>
+              <th scope="col" className="p-4">Fulfillment (Houston)</th>
               <th scope="col" className="p-4">Details</th>
             </tr>
           </thead>
@@ -495,7 +495,7 @@ export default function AdminOrders() {
                   <td className="p-4 font-semibold">{money(item.total)}</td>
                   <td className="p-4"><StatusPill value={item.payment_status} /></td>
                   <td className="p-4"><StatusPill value={item.order_status} /></td>
-                  <td className="p-4">{formatDate(item.delivery_date)}</td>
+                  <td className="p-4">{formatDate(item.fulfillment_at ?? item.delivery_date)}<span className="mt-1 block text-xs text-[#796D6A]">{item.fulfillment_method === "pickup" ? "Pickup" : item.fulfillment_method === "delivery" ? "Delivery" : "Confirm arrangements"}</span></td>
                   <td className="p-4">
                     <button
                       type="button"
@@ -579,9 +579,12 @@ export default function AdminOrders() {
                   <h3 className="mt-6 text-sm font-bold uppercase tracking-wide text-[#756B69]">Customer & delivery</h3>
                   <dl className="mt-3 grid gap-x-5 gap-y-4 sm:grid-cols-2">
                     <DetailField title="Customer">{cleanText(order.shipping_name)}</DetailField>
-                    <DetailField title="Delivery date">{formatDate(order.delivery_date)}</DetailField>
+                    <DetailField title="Fulfillment">{order.fulfillment_method === "delivery" ? "Delivery" : order.fulfillment_method === "pickup" ? "Pickup (coordinate with customer)" : "Legacy order · confirm arrangements"}</DetailField>
+                    <DetailField title="Requested time (Houston / Katy)">{formatDate(order.fulfillment_at ?? order.delivery_date)}</DetailField>
+                    {order.fulfillment_method === "delivery" && <DetailField title="Road distance">{(order.delivery_distance_meters / 1609.344).toFixed(2)} miles</DetailField>}
                     <DetailField title="Email">{cleanText(order.customer_email)}</DetailField>
                     <DetailField title="Phone">{cleanText(order.customer_phone)}</DetailField>
+                    {order.preparation_points && <DetailField title="Preparation reservation">{order.preparation_points} points · {order.preparation_status}</DetailField>}
                   </dl>
 
                   <button
@@ -594,7 +597,7 @@ export default function AdminOrders() {
                   </button>
                   {showAdditionalInfo && (
                     <dl className="mt-4 space-y-4 rounded-xl border border-[#E7DCD9] p-4">
-                      <DetailField title="Delivery address">{address || "Not provided"}</DetailField>
+                      <DetailField title={order.fulfillment_method === "pickup" ? "Pickup arrangements" : "Delivery address"}>{order.fulfillment_method === "pickup" ? "Coordinate the pickup location and time directly with the customer." : address || "Not provided"}</DetailField>
                       {order.delivery_instructions && <DetailField title="Delivery instructions">{order.delivery_instructions}</DetailField>}
                       {order.note && <DetailField title="Order notes">{order.note}</DetailField>}
                     </dl>

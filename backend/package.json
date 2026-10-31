@@ -8,7 +8,9 @@
     "start": "node server.js",
     "test:checkout": "node scripts/runCheckoutValidation.js",
     "stripe:listen": "node scripts/listenStripeTestWebhooks.js",
-    "stripe:reconcile-test": "node scripts/reconcileTestCheckout.js"
+    "stripe:reconcile-test": "node scripts/reconcileTestCheckout.js",
+    "db:delivery": "node scripts/installDelivery.js",
+    "db:production": "node scripts/installProduction.js"
   },
   "keywords": [],
   "author": "",

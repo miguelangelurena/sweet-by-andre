@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
 import { pool } from "../config/database.js";
+import { DeliveryError, houstonInstant } from "../services/deliveryPolicy.service.js";
+import { priceOrderFulfillment } from "../services/delivery.service.js";
+import { holdOrderProduction } from "../services/production.service.js";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,7 +33,18 @@ const toCents = (value) => {
 const toMoney = (cents) => (cents / 100).toFixed(2);
 
 export const createOrder = async (req, res) => {
-    const body = req.body ?? {};
+    let body = { ...(req.body ?? {}) };
+    const method = body.fulfillment_method ?? "pickup";
+    if (!["pickup", "delivery"].includes(method)) return fail(res, 400, "Choose pickup or delivery");
+    try {
+        if (body.fulfillment_date || body.fulfillment_time) {
+            body.delivery_date = houstonInstant(body.fulfillment_date, body.fulfillment_time).toISOString();
+        }
+    } catch (error) { return fail(res, 400, error.message, error.code); }
+    // Pickup does not require a customer's delivery address. Use explicit
+    // placeholders for the older non-null shipping columns.
+    if (method === "pickup") body = { ...body, shipping_street: "Pickup", shipping_street_number: "N/A",
+        shipping_unit: "", shipping_city: "Katy", shipping_state: "TX", shipping_zip_code: "N/A", delivery_instructions: "" };
 
     const {
         shipping_name,
@@ -60,7 +74,8 @@ export const createOrder = async (req, res) => {
         shipping_name, shipping_street, shipping_street_number,
         shipping_unit ?? "", shipping_city, shipping_state,
         shipping_zip_code, delivery_instructions ?? "", note ?? "",
-        delivery_date, customer_email, customer_phone, sms_opt_in
+        delivery_date, customer_email, customer_phone, sms_opt_in,
+        method, method === "delivery" ? body.delivery_quote_id : null
     ].map(value => typeof value === "string" ? value.trim() : value);
     const payloadHash = createHash("sha256")
         .update(JSON.stringify(payloadSnapshot)).digest("hex");
@@ -145,7 +160,8 @@ export const createOrder = async (req, res) => {
         return fail(
             res,
             400,
-            "Delivery must be scheduled at least 48 hours in advance"
+            "Pickup or delivery must be scheduled at least 48 hours in advance",
+            "DELIVERY_NOTICE"
         );
     }
 
@@ -172,7 +188,8 @@ export const createOrder = async (req, res) => {
         if (!reserved.rowCount) {
             const existing = await client.query(
                 `SELECT r.payload_hash, o.id, o.payment_status, o.order_status,
-                        o.subtotal, o.shipping_cost, o.tax_amount, o.total
+                        o.subtotal, o.shipping_cost, o.tax_amount, o.total,
+                        o.fulfillment_method, o.fulfillment_at
                  FROM order_creation_requests r
                  LEFT JOIN orders o ON o.id = r.order_id
                  WHERE r.identity_type = $1 AND r.identity_id = $2
@@ -197,7 +214,8 @@ export const createOrder = async (req, res) => {
                     id: previous.id, payment_status: previous.payment_status,
                     order_status: previous.order_status, subtotal: previous.subtotal,
                     shipping_cost: previous.shipping_cost,
-                    tax_amount: previous.tax_amount, total: previous.total
+                    tax_amount: previous.tax_amount, total: previous.total,
+                    fulfillment_method: previous.fulfillment_method, fulfillment_at: previous.fulfillment_at
                 }
             });
         }
@@ -269,6 +287,8 @@ export const createOrder = async (req, res) => {
                     v.product_id,
                     v.price,
                     v.stock,
+                    v.production_points,
+                    p.inventory_mode,
                     v.is_available,
                     p.name AS product_name,
                     p.is_available AS product_available,
@@ -376,7 +396,7 @@ export const createOrder = async (req, res) => {
 
             quantities.set(item.variant_id, quantity);
 
-            if (quantity > variant.stock) {
+            if (variant.inventory_mode === "stock" && quantity > variant.stock) {
                 await client.query("ROLLBACK");
                 return fail(
                     res,
@@ -402,9 +422,12 @@ export const createOrder = async (req, res) => {
             }
         }
 
-        // Temporary development values.
-        // Shipping and taxes must be calculated before live payments.
-        const shippingCents = 0;
+        const fulfillment = await priceOrderFulfillment(client, {
+            method, appointment: parsedDate, cartId: userId ? null : cartId,
+            quoteId: body.delivery_quote_id, address: body, subtotalCents,
+        });
+        const shippingCents = fulfillment.feeCents;
+        // Tax configuration remains separate from delivery pricing.
         const taxCents = 0;
         const totalCents = subtotalCents + shippingCents + taxCents;
 
@@ -431,12 +454,20 @@ export const createOrder = async (req, res) => {
                 tax_amount,
                 total,
                 payment_status,
-                order_status
+                order_status,
+                fulfillment_method,
+                fulfillment_at,
+                service_date,
+                delivery_distance_meters,
+                delivery_policy_version,
+                delivery_hold_until
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
-                $15, $16, $17, $18, $19, 'pending', 'pending'
+                $15, $16, $17, $18, $19, 'pending', 'pending',
+                $20, $21, $22, $23, $24,
+                CASE WHEN $20 = 'delivery' THEN NOW() + INTERVAL '30 minutes' ELSE NULL END
             )
             RETURNING *;
             `,
@@ -459,7 +490,8 @@ export const createOrder = async (req, res) => {
                 toMoney(subtotalCents),
                 toMoney(shippingCents),
                 toMoney(taxCents),
-                toMoney(totalCents)
+                toMoney(totalCents),
+                method, parsedDate, fulfillment.date, fulfillment.meters, fulfillment.version
             ]
         );
 
@@ -478,9 +510,11 @@ export const createOrder = async (req, res) => {
                     unit_price,
                     notes,
                     options_snapshot,
-                    product_name_snapshot
+                    product_name_snapshot,
+                    inventory_mode,
+                    production_points
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 `,
                 [
                     order.id,
@@ -490,10 +524,14 @@ export const createOrder = async (req, res) => {
                     variant.price,
                     item.notes,
                     JSON.stringify(variant.options_snapshot),
-                    variant.product_name
+                    variant.product_name,
+                    variant.inventory_mode,
+                    variant.inventory_mode === "made_to_order" ? variant.production_points : 0
                 ]
             );
         }
+
+        await holdOrderProduction(client, order.id);
 
         // Publish the created order in the same transaction as its line items.
         await client.query(
@@ -515,7 +553,9 @@ export const createOrder = async (req, res) => {
                 subtotal: order.subtotal,
                 shipping_cost: order.shipping_cost,
                 tax_amount: order.tax_amount,
-                total: order.total
+                total: order.total,
+                fulfillment_method: order.fulfillment_method,
+                fulfillment_at: order.fulfillment_at
             }
         });
 
@@ -524,6 +564,7 @@ export const createOrder = async (req, res) => {
             await client.query("ROLLBACK").catch(console.error);
         }
 
+        if (error instanceof DeliveryError) return fail(res, error.status, error.message, error.code);
         console.error("Create order error:", error);
 
         return fail(res, 500, "Internal server error");

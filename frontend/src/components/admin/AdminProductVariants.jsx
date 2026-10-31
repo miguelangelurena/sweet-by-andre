@@ -16,6 +16,8 @@ import {
 export default function AdminProductVariants({ productId }) {
   const [options, setOptions] = useState([]);
   const [variants, setVariants] = useState([]);
+  const [inventoryMode, setInventoryMode] = useState("stock");
+  const madeToOrder = inventoryMode === "made_to_order";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -74,6 +76,7 @@ export default function AdminProductVariants({ productId }) {
         if (active) {
           setOptions(optionsResponse.options ?? []);
           setVariants(variantsResponse.variants ?? []);
+          setInventoryMode(variantsResponse.product?.inventory_mode ?? "stock");
         }
       } catch (err) {
         if (active) {
@@ -659,8 +662,7 @@ export default function AdminProductVariants({ productId }) {
                 </h3>
 
                 <p className="mt-2 text-sm text-[#756B69]">
-                  Manage the price, stock, and availability of each product
-                  configuration.
+                  {madeToOrder ? <>Made to order. Manage prices and availability here; set preparation points in <a href="#admin/production" className="text-[#9E4F60] underline">Preparation &amp; capacity</a>.</> : "Manage the price, stock, and availability of each product configuration."}
                 </p>
               </div>
 
@@ -670,6 +672,7 @@ export default function AdminProductVariants({ productId }) {
                   <VariantPriceMatrix
                     options={options}
                     variants={variants}
+                    madeToOrder={madeToOrder}
                     onSaved={async () => {
                       const response = await getAdminProductVariants(productId);
                       setVariants(response.variants ?? []);
@@ -749,7 +752,7 @@ export default function AdminProductVariants({ productId }) {
                             </td>
 
                             <td className="px-4 py-4">
-                              {isEditing ? (
+                              {madeToOrder ? <span className="text-xs text-[#796D6A]">Made to order · {variant.production_points} preparation points</span> : isEditing ? (
                                 <input
                                   type="number"
                                   min="0"
@@ -913,7 +916,7 @@ export default function AdminProductVariants({ productId }) {
                         className={inputClass}
                       />
                     </div>
-                    <div>
+                    <div className={madeToOrder ? "hidden" : ""}>
                       <label
                         htmlFor="new-variant-stock"
                         className="mb-2 block text-sm font-semibold text-[#453B39]"

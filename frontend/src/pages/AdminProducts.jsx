@@ -373,9 +373,9 @@ export default function AdminProducts() {
                   </div>
                 </div>
                 <div className="my-4 flex items-center justify-between border-y border-[#E7DCD9] py-3 text-sm">
-                  <span className="text-[#756B69]">Stock</span>
+                  <span className="text-[#756B69]">Sales mode</span>
                   <span className="font-semibold text-[#282323]">
-                    {product.stock}
+                    {product.inventory_mode === "made_to_order" ? "Made to order" : "Stock by variant"}
                   </span>
                 </div>
                 {renderActions(product, true)}
@@ -391,7 +391,7 @@ export default function AdminProducts() {
                   <th className="px-5 py-4">Product</th>
                   <th className="px-5 py-4">Category</th>
                   <th className="px-5 py-4">Price</th>
-                  <th className="px-5 py-4">Stock</th>
+                  <th className="px-5 py-4">Sales mode</th>
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Actions</th>
                 </tr>
@@ -417,7 +417,7 @@ export default function AdminProducts() {
                       ${Number(product.price).toFixed(2)}
                     </td>
                     <td className="px-5 py-4 text-sm text-[#756B69]">
-                      {product.stock}
+                      {product.inventory_mode === "made_to_order" ? "Made to order" : "Stock by variant"}
                     </td>
                     <td className="px-5 py-4">{renderStatus(product)}</td>
                     <td className="px-5 py-4">{renderActions(product)}</td>

@@ -117,7 +117,8 @@ export default function AdminProductForm({ onClose, onCreated }) {
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[#756B69]">
               Add the product details below. You can upload photos after
-              creating it.
+              creating it. New products are made to order; preparation load and
+              sales mode are managed in Preparation &amp; capacity.
             </p>
           </div>
           <button
@@ -202,7 +203,7 @@ export default function AdminProductForm({ onClose, onCreated }) {
                 placeholder="45.00"
               />
             </div>
-            <div>
+            <div className="hidden">
               <label
                 htmlFor="product-stock"
                 className="mb-2 block text-sm font-semibold text-[#282323]"

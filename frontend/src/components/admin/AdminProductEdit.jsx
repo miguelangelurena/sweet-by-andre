@@ -175,7 +175,7 @@ export default function AdminProductEdit({ product, onClose, onUpdated }) {
                 placeholder="45.00"
               />
             </div>
-            <div className="min-w-0">
+            <div className={product.inventory_mode === "made_to_order" ? "hidden" : "min-w-0"}>
               <label htmlFor="edit-stock" className={labelClass}>
                 Stock
               </label>
