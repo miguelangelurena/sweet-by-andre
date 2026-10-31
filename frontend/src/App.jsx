@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import Header from "./components/layout/Header";
+import PublicLayout from "./components/layout/PublicLayout";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import AdminProducts from "./pages/AdminProducts";
@@ -40,6 +40,12 @@ export default function App() {
         left: 0,
         behavior: "instant",
       });
+    } else if (["#home", "#menu", "#about", "#contact"].includes(hash)) {
+      // The hash can mount Home from another page; scroll after it renders.
+      const frame = requestAnimationFrame(() => {
+        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "auto" });
+      });
+      return () => cancelAnimationFrame(frame);
     }
   }, [hash]);
 
@@ -58,7 +64,7 @@ export default function App() {
   // Stripe redirects to pathname routes, not hash routes. Do not trust
   // the redirect itself as proof of payment.
   if (paymentPath === "/payment-success" || paymentPath === "/payment-cancelled") {
-    return <><Header /><PaymentResult kind={paymentPath === "/payment-success" ? "success" : "cancelled"} /></>;
+    return <PublicLayout><PaymentResult kind={paymentPath === "/payment-success" ? "success" : "cancelled"} /></PublicLayout>;
   }
 
   // -------------------------
@@ -105,7 +111,7 @@ export default function App() {
   }
 
   if (hash === "#seasonal") {
-    return <><Header /><SeasonalCollections /></>;
+    return <PublicLayout><SeasonalCollections /></PublicLayout>;
   }
 
   // -------------------------
@@ -116,10 +122,9 @@ export default function App() {
 
   if (productMatch) {
     return (
-      <>
-        <Header />
+      <PublicLayout>
         <ProductDetail productId={productMatch[1]} />
-      </>
+      </PublicLayout>
     );
   }
 
@@ -129,8 +134,7 @@ export default function App() {
 
   if (hash === "#cart") {
     return (
-      <>
-        <Header />
+      <PublicLayout>
         <Cart
           onContinueShopping={() => {
             window.location.hash = "#catalog";
@@ -139,7 +143,7 @@ export default function App() {
             window.location.hash = "#checkout";
           }}
         />
-      </>
+      </PublicLayout>
     );
   }
 
@@ -149,10 +153,9 @@ export default function App() {
 
   if (hash === "#checkout") {
     return (
-      <>
-        <Header />
+      <PublicLayout>
         <Checkout onBack={() => { window.location.hash = "#cart"; }} />
-      </>
+      </PublicLayout>
     );
   }
 
@@ -163,9 +166,8 @@ export default function App() {
   const isCatalog = hash === "#catalog";
 
   return (
-    <>
-      <Header />
+    <PublicLayout>
       {isCatalog ? <Catalog /> : <Home />}
-    </>
+    </PublicLayout>
   );
 }

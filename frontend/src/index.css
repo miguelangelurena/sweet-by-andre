@@ -28,6 +28,50 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Public storefront palette and photography, inspired by sweetsbyandre.com. */
+.storefront {
+  background: radial-gradient(ellipse at 15% 5%, #fff9f5 0%, transparent 48%),
+    radial-gradient(ellipse at 93% 35%, #f3dfdd 0%, transparent 42%), #fbf5f0;
+  color: #49332f;
+}
+
+.brand-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #936568;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.brand-eyebrow::before {
+  content: "";
+  flex: 0 0 1.5rem;
+  height: 1px;
+  background: #b67e7e;
+}
+
+.brand-photo { box-shadow: 0 20px 80px rgb(107 71 60 / 10%); }
+
+.brand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 999px;
+  background: #bb6c76;
+  padding: 1rem 1.5rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgb(188 109 120 / 16%);
+  transition: background-color 0.2s;
+}
+
+.brand-button:hover { background: #9f5362; }
+
 
 /* Sweet by André — global interaction and accessibility baseline. */
 button:not(:disabled),

@@ -1,169 +1,76 @@
-import SeasonalCollections from "../components/products/SeasonalCollections";
+﻿import SeasonalCollections from "../components/products/SeasonalCollections";
+import OurStory from "../components/home/OurStory";
+import heroDessert from "../assets/home/reference-dessert.jpg";
 import miniCheesecakes from "../assets/home/mini-cheesecakes-strawberry.jpg";
-import flanWhole from "../assets/home/flan-whole.png";
 import miniFlans from "../assets/home/mini-flans.jpg";
 import creamDessert from "../assets/home/cream-dessert.jpg";
 
 const categories = [
-  {
-    title: "Cheesecakes",
-    description: "Little bites of sweetness.",
-    image: miniCheesecakes,
-  },
-  {
-    title: "Flans",
-    description: "Smooth, creamy & delicious.",
-    image: miniFlans,
-  },
-  {
-    title: "Sweet Creations",
-    description: "Handcrafted for special moments.",
-    image: creamDessert,
-  },
+  { title: "Cheesecakes", description: "Little bites of sweetness, made to share.", image: miniCheesecakes },
+  { title: "Venezuelan Quesillo", description: "A creamy caramel classic. A little taste of home.", image: miniFlans },
+  { title: "Sweet Creations", description: "Something special for every sweet moment.", image: creamDessert },
+];
+const values = [
+  { glyph: "♡", title: "Made with love", description: "Thoughtfully handcrafted treats" },
+  { glyph: "✦", title: "Venezuelan roots", description: "Inspired by cherished traditions" },
+  { glyph: "✧", title: "Sweet moments", description: "For celebrations big and small" },
 ];
 
 export default function Home() {
   return (
-    <main className="bg-[#FAF7F5]">
-      {/* Hero */}
-      <section
-        id="home"
-        className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-16 md:py-24 lg:grid-cols-2"
-      >
+    <main className="storefront">
+      <section id="home" aria-labelledby="home-title" className="mx-auto grid max-w-[1228px] items-center gap-10 px-6 pt-10 pb-14 md:pt-14 md:pb-16 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16">
         <div className="max-w-xl">
-          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-[#B76473]">
-            Handcrafted with love
-          </span>
-
-          <h1 className="mt-6 font-serif text-5xl leading-[1.12] text-[#282323] sm:text-6xl lg:text-7xl">
-            A little sweetness
-            <span className="block italic text-[#B76473]">in every bite.</span>
-          </h1>
-
-          <p className="mt-7 max-w-md text-base leading-8 text-[#796D6A]">
-            Discover thoughtfully handcrafted desserts, made to turn ordinary
-            moments into unforgettable memories.
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center gap-4">
-            <a
-              href="#catalog"
-              className="rounded-full bg-[#B76473] px-8 py-4 text-sm font-semibold text-white transition hover:bg-[#9E4F60]"
-            >
-              Explore Our Menu
-            </a>
-
-            <a
-              href="#about"
-              className="border-b border-[#B76473] pb-1 text-sm font-medium text-[#282323] transition hover:text-[#B76473]"
-            >
-              Our Story →
-            </a>
+          <span className="brand-eyebrow">A little sweetness, a little piece of home</span>
+          <h1 id="home-title" className="mt-6 font-serif text-5xl leading-[1.12] font-medium tracking-[-0.045em] text-[#49332F] sm:text-6xl lg:text-[79px]">Rooted in tradition.<span className="mt-1 block italic text-[#BB6C76]">Baked with love.</span></h1>
+          <p className="mt-7 max-w-lg text-lg leading-8 text-[#786962]">Handcrafted desserts inspired by the flavors and traditions of Venezuela, made to turn every moment into something special.</p>
+          <div className="mt-8 flex flex-wrap items-center gap-5">
+            <a href="#catalog" className="brand-button w-full sm:w-auto">Explore our menu <span aria-hidden="true">→</span></a>
+            <a href="#about" className="border-b border-[#BB6C76]/50 pb-1 text-sm font-medium text-[#49332F] transition hover:text-[#9F5362]">Meet the heart behind the sweets</a>
           </div>
+          <p className="mt-6 text-xs leading-6 text-[#786962]">Pickup &amp; delivery in Katy / Houston · Please order 48 hours ahead</p>
         </div>
-        <div className="relative">
-          <div className="absolute -left-5 -top-5 h-28 w-28 rounded-full border border-[#E7DCD9]" />
-
-          <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-t-full rounded-b-[2rem] bg-gradient-to-br from-[#EEDDDC] via-[#F4E8E5] to-[#D9BDBA]">
-            <div className="px-8 text-center">
-              <div className="font-serif text-7xl text-[#B76473]/50">✧</div>
-              <p className="mt-5 font-serif text-2xl italic text-[#8F6470]">
-                Made with love
-              </p>
-              <div className="relative overflow-hidden rounded-t-full rounded-b-[2rem]">
-                <img
-                  src={flanWhole}
-                  alt="Flan artesanal de Sweet by Andre"
-                  className="h-full w-full object-cover"
-                />
-              </div>
+        <figure className="brand-photo relative mx-auto w-full max-w-[540px] overflow-hidden rounded-t-[40%] rounded-b-3xl bg-[#EEE0D9]">
+          <img src={heroDessert} alt="A cream cake topped with strawberries, blueberries and delicate white flowers" fetchPriority="high" className="aspect-[0.85] w-full object-cover object-[center_45%]" />
+          <figcaption className="absolute bottom-5 left-5 rounded-2xl bg-[#FFFAF4]/90 px-5 py-3 font-serif text-base text-[#49332F] backdrop-blur-sm">Made with love <span aria-hidden="true">♡</span></figcaption>
+        </figure>
+      </section>
+      <section aria-label="What makes our desserts special" className="mx-auto max-w-[1180px] border-y border-[#EADBD4]">
+        <div className="grid divide-y divide-[#EADBD4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {values.map(({ glyph, title, description }) => (
+            <div key={title} className="px-6 py-7 text-center">
+              <span aria-hidden="true" className="mb-1 block text-2xl text-[#BB6C76]">{glyph}</span>
+              <h2 className="font-serif text-xl text-[#49332F]">{title}</h2>
+              <p className="mt-1 text-sm text-[#786962]">{description}</p>
             </div>
-          </div>
-
-          <div className="absolute -bottom-6 -left-4 rounded-2xl border border-[#E7DCD9] bg-white/95 px-6 py-5 shadow-sm sm:-left-8">
-            <p className="font-serif text-xl italic text-[#282323]">
-              Sweet moments
-            </p>
-            <p className="mt-1 text-xs tracking-wide text-[#796D6A]">
-              Crafted with care
-            </p>
-          </div>
+          ))}
         </div>
       </section>
-
-      {/* Categorías */}
-      <section id="menu" className="px-6 py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <span className="text-xs font-semibold uppercase tracking-[0.3em] text-[#B76473]">
-              Discover our creations
-            </span>
-
-            <h2 className="mt-4 font-serif text-4xl text-[#282323] md:text-5xl">
-              Made to satisfy your cravings
-            </h2>
-
-            <p className="mx-auto mt-4 max-w-lg leading-7 text-[#796D6A]">
-              Something special for every celebration, gathering, or sweet
-              little moment.
-            </p>
+      <section id="menu" aria-labelledby="menu-title" className="px-6 py-20 sm:py-24">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="mx-auto max-w-xl text-center">
+            <span className="brand-eyebrow">Something for your sweet tooth</span>
+            <h2 id="menu-title" className="mt-5 font-serif text-4xl leading-tight text-[#49332F] sm:text-5xl">Little joys. <span className="italic text-[#BB6C76]">Sweet memories.</span></h2>
+            <p className="mt-5 leading-7 text-[#786962]">From a traditional Venezuelan quesillo to cheesecakes and other sweet creations, there’s a little happiness waiting for your table.</p>
           </div>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
+          <div className="mt-12 grid gap-7 md:grid-cols-3">
             {categories.map((category) => (
-              <article
-                key={category.title}
-                className="group overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white"
-              >
-                <div className="aspect-[4/3] overflow-hidden bg-[#F1E5E2]">
-                  <img
-                    src={category.image}
-                    alt={category.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
+              <a key={category.title} href="#catalog" className="group overflow-hidden rounded-t-[3.5rem] rounded-b-3xl border border-[#EADBD4] bg-[#FFFDFA] transition-shadow hover:shadow-lg hover:shadow-[#6B473C]/5">
+                <div className="aspect-[4/3] overflow-hidden bg-[#EEE0D9]">
+                  <img src={category.image} alt={category.title} loading="lazy" className="h-full w-full object-cover transition duration-500 motion-safe:group-hover:scale-105" />
                 </div>
-
                 <div className="p-7 text-center">
-                  <h3 className="font-serif text-2xl text-[#282323]">
-                    {category.title}
-                  </h3>
-
-                  <p className="mt-2 text-sm text-[#796D6A]">
-                    {category.description}
-                  </p>
-
-                  <a
-                    href="#catalog"
-                    className="mt-5 inline-block text-sm font-semibold text-[#B76473]"
-                  >
-                    Explore Collection →
-                  </a>
+                  <h3 className="font-serif text-2xl text-[#49332F]">{category.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#786962]">{category.description}</p>
+                  <span className="mt-5 inline-block text-sm font-semibold text-[#9F5362]">Explore the menu <span aria-hidden="true">→</span></span>
                 </div>
-              </article>
+              </a>
             ))}
           </div>
         </div>
       </section>
-
       <SeasonalCollections compact />
-
-      {/* Presentación */}
-      <section id="about" className="bg-[#F1E5E2] px-6 py-20 text-center">
-        <div className="mx-auto max-w-2xl">
-          <span className="text-xs uppercase tracking-[0.3em] text-[#B76473]">
-            The Sweet by Andre experience
-          </span>
-
-          <h2 className="mt-5 font-serif text-4xl text-[#282323]">
-            Baked with passion, shared with love.
-          </h2>
-
-          <p className="mt-6 leading-8 text-[#796D6A]">
-            Thoughtfully made desserts for life's sweetest moments.
-          </p>
-        </div>
-      </section>
+      <OurStory />
     </main>
   );
 }
