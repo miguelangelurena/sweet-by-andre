@@ -1,9 +1,14 @@
 ﻿import SeasonalCollections from "../components/products/SeasonalCollections";
 import OurStory from "../components/home/OurStory";
 import heroDessert from "../assets/home/reference-dessert.jpg";
+import heroDessertCutout from "../assets/home/hero-dessert-cutout.png";
 import miniCheesecakes from "../assets/home/mini-cheesecakes-strawberry.jpg";
 import miniFlans from "../assets/home/mini-flans.jpg";
 import creamDessert from "../assets/home/cream-dessert.jpg";
+
+// Design previews: "layered", "transparent", or "photo" (original arched photo).
+const HERO_STYLE = "layered";
+const USE_CUTOUT = HERO_STYLE !== "photo";
 
 const categories = [
   { title: "Cheesecakes", description: "Little bites of sweetness, made to share.", image: miniCheesecakes },
@@ -30,9 +35,23 @@ export default function Home() {
           </div>
           <p className="mt-6 text-xs leading-6 text-[#786962]">Pickup &amp; delivery in Katy / Houston · Please order 48 hours ahead</p>
         </div>
-        <figure className="brand-photo relative mx-auto w-full max-w-[540px] overflow-hidden rounded-t-[40%] rounded-b-3xl bg-[#EEE0D9]">
-          <img src={heroDessert} alt="A cream cake topped with strawberries, blueberries and delicate white flowers" fetchPriority="high" className="aspect-[0.85] w-full object-cover object-[center_45%]" />
-          <figcaption className="absolute bottom-5 left-5 rounded-2xl bg-[#FFFAF4]/90 px-5 py-3 font-serif text-base text-[#49332F] backdrop-blur-sm">Made with love <span aria-hidden="true">♡</span></figcaption>
+        <figure className={USE_CUTOUT
+          ? "relative isolate mx-auto w-full max-w-[540px]"
+          : "brand-photo relative mx-auto w-full max-w-[540px] overflow-hidden rounded-t-[40%] rounded-b-3xl bg-[#EEE0D9]"}>
+          {HERO_STYLE === "layered" && (
+            <div aria-hidden="true" className="brand-photo absolute inset-x-[9%] top-[12%] bottom-[10%] -z-10 rounded-t-[40%] rounded-b-3xl border border-[#E5CFC6] bg-gradient-to-br from-[#F4E7DF] via-[#EEDBD3] to-[#DFBAB7]">
+              <div className="absolute inset-2 rounded-t-[40%] rounded-b-2xl border border-white/60" />
+            </div>
+          )}
+          <img src={USE_CUTOUT ? heroDessertCutout : heroDessert}
+            alt="A cream cake topped with strawberries, blueberries and delicate white flowers"
+            fetchPriority="high"
+            className={USE_CUTOUT
+              ? "aspect-[0.85] w-full object-contain p-3 drop-shadow-[0_18px_20px_rgba(107,71,60,0.12)]"
+              : "aspect-[0.85] w-full object-cover object-[center_45%]"} />
+          <figcaption className={HERO_STYLE === "transparent"
+            ? "mt-2 text-center font-serif text-base italic text-[#936B66]"
+            : "absolute bottom-5 left-5 rounded-2xl bg-[#FFFAF4]/90 px-5 py-3 font-serif text-base text-[#49332F] backdrop-blur-sm"}>Made with love <span aria-hidden="true">♡</span></figcaption>
         </figure>
       </section>
       <section aria-label="What makes our desserts special" className="mx-auto max-w-[1180px] border-y border-[#EADBD4]">
