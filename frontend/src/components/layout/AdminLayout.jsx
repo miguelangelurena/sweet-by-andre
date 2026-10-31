@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PreviewBanner from "./PreviewBanner";
 
 const NAV = [
   { href: "#admin/dashboard", label: "Dashboard" },
@@ -41,6 +42,7 @@ export default function AdminLayout({ children }) {
         <div className="p-4"><a href="#home" className="text-sm text-[#756B69] hover:text-[#B76473]">← View website</a></div>
       </aside>
       <div className="min-w-0 flex-1">
+        <PreviewBanner />
         <header className="flex items-center justify-between border-b border-[#E7DCD9] bg-white px-6 py-5">
           <p className="text-sm font-medium text-[#282323]">Admin Panel</p>
           <span className="rounded-full bg-[#FAF0F1] px-3 py-1 text-xs font-semibold text-[#B76473]">Administrator</span>

@@ -4,6 +4,9 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { frontendOrigins } from "./config/hosting.js";
 
 import { pool } from "./config/database.js";
 
@@ -27,10 +30,11 @@ const app = express();
 
 const isProduction = process.env.NODE_ENV === "production";
 
-const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+const allowedOrigins = frontendOrigins();
+
+if (process.env.APP_ENV === "staging") app.use((_req, res, next) => {
+    res.set("X-Robots-Tag", "noindex, nofollow"); next();
+});
 
 // Necessary when Express is behind a trusted reverse proxy.
 if (isProduction) {
@@ -124,5 +128,13 @@ app.use("/api", paymentRouter);
 app.use("/api/admin", adminOrdersRouter);
 app.use("/api/admin", adminDashboardRouter);
 app.use("/api", guestCartRoutes);
+
+if (process.env.SERVE_FRONTEND === "true") {
+    const frontendDist = fileURLToPath(new URL("../../frontend/dist/", import.meta.url));
+    if (!existsSync(`${frontendDist}/index.html`)) throw new Error("Build the frontend before enabling SERVE_FRONTEND");
+    app.use("/api", (_req, res) => res.status(404).json({ status: "ERROR", message: "API route not found" }));
+    app.use(express.static(frontendDist));
+    app.get(/.*/, (_req, res) => res.sendFile("index.html", { root: frontendDist }));
+}
 
 export default app;

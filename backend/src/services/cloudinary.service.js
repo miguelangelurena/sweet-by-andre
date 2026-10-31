@@ -1,6 +1,7 @@
 
 import { Readable } from "node:stream";
 import { cloudinary } from "../config/cloudinary.js";
+const imageFolder = () => process.env.CLOUDINARY_FOLDER || (process.env.APP_ENV === "staging" ? "sweet-by-andre/staging" : "sweet-by-andre");
 
 export const uploadImageToCloudinary = async (
     fileBuffer,
@@ -9,7 +10,7 @@ export const uploadImageToCloudinary = async (
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
-                folder: `sweet-by-andre/products/${productId}`,
+                folder: `${imageFolder()}/products/${productId}`,
                 resource_type: "image",
                 overwrite: false
             },
@@ -36,6 +37,9 @@ export const uploadImageToCloudinary = async (
 };
 
 export const deleteImageFromCloudinary = async (publicId) => {
+    if (process.env.APP_ENV === "staging" && !publicId.startsWith(`${imageFolder()}/`)) {
+        throw new Error("Staging can delete only its own uploaded images");
+    }
     return cloudinary.uploader.destroy(publicId, {
         resource_type: "image"
     });

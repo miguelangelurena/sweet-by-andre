@@ -2,6 +2,10 @@ import { pool } from '../config/database.js';
 
 export const health = async (req, res) => {
     try {
+        if (process.env.NODE_ENV === "production") {
+            await pool.query("SELECT 1");
+            return res.json({ status: "OK" });
+        }
         const result = await pool.query(`
             SELECT
                 NOW() AS now,

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 const cwd = fileURLToPath(new URL("../", import.meta.url));
 const { parsed = {} } = dotenv.config({ path: `${cwd}.env`, quiet: true });
 const files = [
+  "hosting.unit.test.js",
   "production-policy.unit.test.js",
   "production.http.test.js",
   "testInventoryReservation.js",

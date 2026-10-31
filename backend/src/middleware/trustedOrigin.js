@@ -1,7 +1,5 @@
-const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
-    .split(",")
-    .map(origin => origin.trim())
-    .filter(Boolean);
+import { frontendOrigins } from "../config/hosting.js";
+const allowedOrigins = frontendOrigins();
 
 export const requireTrustedOrigin = (req, res, next) => {
     const origin = req.get("Origin");

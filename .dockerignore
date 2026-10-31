@@ -1,0 +1,14 @@
+.git
+.agents
+.codex
+.aws
+**/node_modules
+**/.env
+**/.env.*
+**/*.log
+**/cookies*.txt
+frontend/dist
+backend/tests
+frontend/tests
+tmp
+output

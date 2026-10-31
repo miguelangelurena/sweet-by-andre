@@ -1,6 +1,7 @@
 
 import { stripe } from "../config/stripe.js";
 import { DeliveryError } from "../services/deliveryPolicy.service.js";
+import { frontendOrigins } from "../config/hosting.js";
 
 import {
     startDatabaseCheckout
@@ -37,7 +38,7 @@ export function makeCheckoutV2Controller({
                 });
             }
 
-            const frontendUrl = process.env.FRONTEND_URL;
+            const frontendUrl = frontendOrigins()[0];
 
             if (!frontendUrl) {
                 throw new Error(

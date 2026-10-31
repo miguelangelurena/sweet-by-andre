@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import PublicLayout from "./components/layout/PublicLayout";
+import PreviewBanner from "./components/layout/PreviewBanner";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
 import AdminProducts from "./pages/AdminProducts";
@@ -76,7 +77,7 @@ export default function App() {
   // -------------------------
 
   if (hash === "#admin/login") {
-    return <AdminLogin />;
+    return <><PreviewBanner /><AdminLogin /></>;
   }
 
   // -------------------------
