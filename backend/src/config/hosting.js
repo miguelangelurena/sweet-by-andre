@@ -61,4 +61,11 @@ export function validateStagingRuntime(env = process.env) {
       "Set an HTTPS FRONTEND_URL or use the public URL provided by Render or Railway",
     );
   stripeSecret(env);
+  if (
+    env.ENABLE_STRIPE_CHECKOUT === "true" &&
+    !/^whsec_[A-Za-z0-9]+$/.test(env.STRIPE_WEBHOOK_SECRET ?? "")
+  )
+    throw new Error(
+      "Set the staging STRIPE_WEBHOOK_SECRET before enabling checkout",
+    );
 }

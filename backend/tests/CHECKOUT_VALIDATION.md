@@ -40,8 +40,9 @@ This follows the [Stripe CLI forwarding workflow](https://github.com/stripe/stri
    least 48 hours ahead, create the order, and open Stripe Checkout.
 4. Complete Checkout with a Stripe test payment method. Confirm the browser
    returns to the expected origin and the backend reports the order as paid.
-   The current result page checks status once; reload if the webhook arrives
-   after that check.
+   The result page checks the backend automatically for about 30 seconds,
+   stops on payment confirmation, and offers a manual retry if confirmation
+   takes longer. Return parameters never count as proof of payment.
 5. Confirm the same order appears paid in administration, stock decreases by
    the purchased quantity once, and fulfillment can advance through all stages.
 6. With a separate order, cancel Checkout and return to the order. Retry and
@@ -50,6 +51,8 @@ This follows the [Stripe CLI forwarding workflow](https://github.com/stripe/stri
 
 Automated results do not verify Stripe credentials, external webhook delivery,
 browser cookies, redirects, or the visual checkout flow.
+
+For the published Render environment, follow [STRIPE_STAGING.md](../../STRIPE_STAGING.md).
 
 If a local test payment finished while forwarding was stopped, recover it with
 `npm.cmd run stripe:reconcile-test -- <order UUID>`. This reads the linked session

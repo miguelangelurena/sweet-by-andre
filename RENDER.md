@@ -1,5 +1,9 @@
 # Prueba de Sweet by Andre en Render
 
+Para habilitar y comprobar pagos de prueba, sigue [STRIPE_STAGING.md](STRIPE_STAGING.md).
+La publicación inicial mantiene los pagos desactivados; habilitarlos requiere
+las credenciales de test, el webhook público y una recompilación.
+
 El archivo `render.yaml` crea una aplicación Docker y una base PostgreSQL 18
 independiente, ambas en Virginia y con plan Free. Express sirve el frontend y
 la API desde la misma URL HTTPS. No necesitas publicar Vite por separado.

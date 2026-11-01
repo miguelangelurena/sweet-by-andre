@@ -99,3 +99,30 @@ test("staging setup fails early for missing secrets or an unusable HTTPS origin"
     /HTTPS/,
   );
 });
+
+test("staging payment activation requires both a test key and webhook signing secret", () => {
+  const env = {
+    APP_ENV: "staging",
+    ENABLE_STRIPE_CHECKOUT: "true",
+    SESSION_SECRET: "s".repeat(32),
+    CSRF_SECRET: "a".repeat(64),
+    RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+    STRIPE_SECRET_KEY: "sk_test_example",
+  };
+  assert.throws(() => validateStagingRuntime(env), /STRIPE_WEBHOOK_SECRET/);
+  assert.doesNotThrow(() =>
+    validateStagingRuntime({
+      ...env,
+      STRIPE_WEBHOOK_SECRET: "whsec_testsecret",
+    }),
+  );
+  assert.throws(
+    () =>
+      validateStagingRuntime({
+        ...env,
+        STRIPE_SECRET_KEY: "sk_live_example",
+        STRIPE_WEBHOOK_SECRET: "whsec_testsecret",
+      }),
+    /test key/,
+  );
+});

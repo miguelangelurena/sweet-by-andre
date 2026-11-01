@@ -3,7 +3,8 @@ WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-ENV VITE_APP_ENV=staging VITE_ENABLE_STRIPE_CHECKOUT=false VITE_API_URL=/api
+ARG ENABLE_STRIPE_CHECKOUT=false
+ENV VITE_APP_ENV=staging VITE_ENABLE_STRIPE_CHECKOUT=${ENABLE_STRIPE_CHECKOUT} VITE_API_URL=/api
 RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime

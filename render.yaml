@@ -29,8 +29,8 @@ services:
         value: sweetbyandre@gmail.com
       - key: STAGING_ADMIN_PASSWORD
         sync: false
-      - key: ENABLE_STRIPE_CHECKOUT
-        value: "false"
+      # Checkout defaults to false in Dockerfile. Configure the test switch in
+      # Render Environment after adding the Stripe test key and signing secret.
       - key: ENABLE_TRANSACTIONAL_NOTIFICATIONS
         value: "false"
       - key: ENABLE_TRANSACTIONAL_SMS
