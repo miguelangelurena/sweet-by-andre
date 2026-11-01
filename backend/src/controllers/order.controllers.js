@@ -189,7 +189,8 @@ export const createOrder = async (req, res) => {
             const existing = await client.query(
                 `SELECT r.payload_hash, o.id, o.payment_status, o.order_status,
                         o.subtotal, o.shipping_cost, o.tax_amount, o.total,
-                        o.fulfillment_method, o.fulfillment_at
+                        o.fulfillment_method, o.fulfillment_at, o.delivery_pricing_method,
+                        o.delivery_zip_code, o.delivery_distance_meters
                  FROM order_creation_requests r
                  LEFT JOIN orders o ON o.id = r.order_id
                  WHERE r.identity_type = $1 AND r.identity_id = $2
@@ -215,7 +216,10 @@ export const createOrder = async (req, res) => {
                     order_status: previous.order_status, subtotal: previous.subtotal,
                     shipping_cost: previous.shipping_cost,
                     tax_amount: previous.tax_amount, total: previous.total,
-                    fulfillment_method: previous.fulfillment_method, fulfillment_at: previous.fulfillment_at
+                    fulfillment_method: previous.fulfillment_method, fulfillment_at: previous.fulfillment_at,
+                    delivery_pricing_method: previous.delivery_pricing_method,
+                    delivery_zip_code: previous.delivery_zip_code,
+                    delivery_distance_meters: previous.delivery_distance_meters
                 }
             });
         }
@@ -460,13 +464,15 @@ export const createOrder = async (req, res) => {
                 service_date,
                 delivery_distance_meters,
                 delivery_policy_version,
+                delivery_pricing_method,
+                delivery_zip_code,
                 delivery_hold_until
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
                 $15, $16, $17, $18, $19, 'pending', 'pending',
-                $20, $21, $22, $23, $24,
+                $20, $21, $22, $23, $24, $25, $26,
                 CASE WHEN $20 = 'delivery' THEN NOW() + INTERVAL '30 minutes' ELSE NULL END
             )
             RETURNING *;
@@ -491,7 +497,8 @@ export const createOrder = async (req, res) => {
                 toMoney(shippingCents),
                 toMoney(taxCents),
                 toMoney(totalCents),
-                method, parsedDate, fulfillment.date, fulfillment.meters, fulfillment.version
+                method, parsedDate, fulfillment.date, fulfillment.meters, fulfillment.version,
+                fulfillment.pricingMethod ?? null, fulfillment.zipCode ?? null
             ]
         );
 
@@ -555,7 +562,10 @@ export const createOrder = async (req, res) => {
                 tax_amount: order.tax_amount,
                 total: order.total,
                 fulfillment_method: order.fulfillment_method,
-                fulfillment_at: order.fulfillment_at
+                fulfillment_at: order.fulfillment_at,
+                delivery_pricing_method: order.delivery_pricing_method,
+                delivery_zip_code: order.delivery_zip_code,
+                delivery_distance_meters: order.delivery_distance_meters
             }
         });
 

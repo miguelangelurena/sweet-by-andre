@@ -27,6 +27,8 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_date DATE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_distance_meters INTEGER;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_policy_version INTEGER;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_hold_until TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_pricing_method TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_zip_code TEXT;
 CREATE INDEX IF NOT EXISTS orders_delivery_service_date_idx ON orders (service_date)
     WHERE fulfillment_method = 'delivery';
 
@@ -42,16 +44,20 @@ CREATE TABLE IF NOT EXISTS delivery_quotes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS delivery_quotes_cart_created_idx ON delivery_quotes (guest_cart_id, created_at);
+ALTER TABLE delivery_quotes ADD COLUMN IF NOT EXISTS pricing_method TEXT NOT NULL DEFAULT 'road_distance';
+ALTER TABLE delivery_quotes ADD COLUMN IF NOT EXISTS destination_zip_code TEXT;
 
 -- Delivery snapshots become immutable together with the charged order total.
 CREATE OR REPLACE FUNCTION protect_checkout_delivery()
 RETURNS TRIGGER LANGUAGE plpgsql AS $function$
 BEGIN
     IF (OLD.fulfillment_method, OLD.fulfillment_at, OLD.service_date,
-        OLD.delivery_distance_meters, OLD.delivery_policy_version)
+        OLD.delivery_distance_meters, OLD.delivery_policy_version,
+        OLD.delivery_pricing_method, OLD.delivery_zip_code)
        IS DISTINCT FROM
        (NEW.fulfillment_method, NEW.fulfillment_at, NEW.service_date,
-        NEW.delivery_distance_meters, NEW.delivery_policy_version)
+        NEW.delivery_distance_meters, NEW.delivery_policy_version,
+        NEW.delivery_pricing_method, NEW.delivery_zip_code)
        AND EXISTS (SELECT 1 FROM checkout_attempts WHERE order_id = OLD.id) THEN
         RAISE EXCEPTION 'Delivery details cannot change after Checkout starts';
     END IF;

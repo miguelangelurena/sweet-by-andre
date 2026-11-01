@@ -10,6 +10,7 @@ const DAYS = [
   "Friday",
   "Saturday",
 ];
+
 const input =
   "w-full rounded-lg border border-[#E7DCD9] bg-white px-3 py-2 text-sm disabled:opacity-50";
 const panel = "rounded-2xl border border-[#E7DCD9] bg-white p-5 sm:p-7";
@@ -24,6 +25,7 @@ export default function AdminDelivery() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     let active = true;
     getAdminDelivery()
@@ -88,6 +90,8 @@ export default function AdminDelivery() {
     }
   }
   const config = settings?.config;
+  const zipPricing = config?.pricing_method === "zip_code";
+  const zipRates = config?.zip_rates ?? [];
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 text-[#282323] sm:p-8">
       <div>
@@ -122,6 +126,27 @@ export default function AdminDelivery() {
             <fieldset disabled={busy} className={`${panel} space-y-5`}>
               <legend className="sr-only">Delivery setup</legend>
               <h2 className="font-serif text-2xl">Delivery setup</h2>
+              <label className="block text-sm font-medium">
+                Delivery pricing
+                <select
+                  name="delivery_pricing_method"
+                  value={config.pricing_method ?? "road_distance"}
+                  onChange={(event) =>
+                    update("pricing_method", event.target.value)
+                  }
+                  className={`${input} mt-2`}
+                >
+                  <option value="zip_code">ZIP codes · fixed fees</option>
+                  <option value="road_distance">
+                    Road miles · Google Routes
+                  </option>
+                </select>
+                <span className="mt-2 block text-xs font-normal leading-5 text-[#796D6A]">
+                  ZIP-code fees do not require Google, an API key or a billing
+                  account. Customers outside your list contact Andrea or choose
+                  pickup.
+                </span>
+              </label>
               <label className="flex items-center gap-3 text-sm font-semibold">
                 <input
                   type="checkbox"
@@ -131,27 +156,29 @@ export default function AdminDelivery() {
                 />
                 Enable delivery at checkout
               </label>
-              {!routing && (
+              {!zipPricing && !routing && (
                 <p className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">
                   Road-distance quotes are not configured yet. The server needs
                   GOOGLE_ROUTES_API_KEY before delivery can be enabled. Pickup
                   remains available.
                 </p>
               )}
-              <label className="block text-sm font-medium">
-                Departure address (administrator only)
-                <input
-                  className={`${input} mt-2`}
-                  value={config.origin_address}
-                  onChange={(e) => update("origin_address", e.target.value)}
-                  maxLength={500}
-                  placeholder="Full departure address, Katy, TX, ZIP"
-                />
-                <span className="mt-1 block text-xs font-normal text-[#796D6A]">
-                  Used to calculate one-way driving distance. This address is
-                  not returned by the public settings API.
-                </span>
-              </label>
+              {!zipPricing && (
+                <label className="block text-sm font-medium">
+                  Departure address (administrator only)
+                  <input
+                    className={`${input} mt-2`}
+                    value={config.origin_address}
+                    onChange={(e) => update("origin_address", e.target.value)}
+                    maxLength={500}
+                    placeholder="Full departure address, Katy, TX, ZIP"
+                  />
+                  <span className="mt-1 block text-xs font-normal text-[#796D6A]">
+                    Used to calculate one-way driving distance. This address is
+                    not returned by the public settings API.
+                  </span>
+                </label>
+              )}
               <div className="grid gap-5 sm:grid-cols-3">
                 <label className="text-sm font-medium">
                   Maximum deliveries per day
@@ -167,8 +194,8 @@ export default function AdminDelivery() {
                     }
                   />
                   <span className="mt-1 block text-xs font-normal text-[#796D6A]">
-                    Leave blank for no limit. Stock still limits the units
-                    available for purchase.
+                    Leave blank for no delivery limit. Preparation capacity is
+                    managed separately.
                   </span>
                 </label>
                 <label className="text-sm font-medium">
@@ -215,6 +242,128 @@ export default function AdminDelivery() {
                 </span>
               </label>
             </fieldset>
+
+            {zipPricing && (
+              <fieldset disabled={busy} className={panel}>
+                <legend className="sr-only">ZIP-code delivery rates</legend>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-serif text-2xl">
+                    ZIP-code delivery rates
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      update("zip_rates", [
+                        ...zipRates,
+                        { zip_code: "", label: "", fee_cents: "" },
+                      ])
+                    }
+                    disabled={zipRates.length >= 500}
+                    className="min-h-11 rounded-full border border-[#B76473] px-4 py-2 text-sm font-semibold text-[#9E4F60] disabled:opacity-50"
+                  >
+                    Add ZIP code
+                  </button>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[#796D6A]">
+                  Enter the ZIP codes Andrea agrees to serve in Katy / Houston,
+                  with one fixed fee per code. These are delivery zones, not
+                  measured miles. Unlisted ZIP codes require a custom quote.
+                </p>
+                {!zipRates.length && (
+                  <p
+                    role="status"
+                    className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"
+                  >
+                    No ZIP-code rates yet. Add at least one rate before enabling
+                    delivery. No prices have been assigned automatically.
+                  </p>
+                )}
+                <div className="mt-5 space-y-3">
+                  {zipRates.map((rate, index) => {
+                    const editRate = (key, value) =>
+                      update(
+                        "zip_rates",
+                        zipRates.map((row, i) =>
+                          i === index ? { ...row, [key]: value } : row,
+                        ),
+                      );
+                    return (
+                      <div
+                        key={index}
+                        className="grid min-w-0 items-end gap-3 rounded-xl bg-[#FAF7F5] p-4 sm:grid-cols-[1fr_1.4fr_1fr_auto]"
+                      >
+                        <label className="min-w-0 text-xs">
+                          ZIP code
+                          <input
+                            required
+                            name={`zip_rate_${index}`}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]{5}"
+                            maxLength={5}
+                            value={rate.zip_code}
+                            onChange={(event) =>
+                              editRate("zip_code", event.target.value)
+                            }
+                            className={`${input} mt-1`}
+                          />
+                        </label>
+                        <label className="min-w-0 text-xs">
+                          Area label (optional)
+                          <input
+                            maxLength={80}
+                            value={rate.label ?? ""}
+                            onChange={(event) =>
+                              editRate("label", event.target.value)
+                            }
+                            placeholder="e.g. Katy"
+                            className={`${input} mt-1`}
+                          />
+                        </label>
+                        <label className="min-w-0 text-xs">
+                          Fee ($)
+                          <input
+                            required
+                            name={`zip_fee_${index}`}
+                            type="number"
+                            min="0"
+                            max="1000"
+                            step="0.01"
+                            value={
+                              rate.fee_cents === "" ? "" : rate.fee_cents / 100
+                            }
+                            onChange={(event) =>
+                              editRate(
+                                "fee_cents",
+                                event.target.value === ""
+                                  ? ""
+                                  : Math.round(
+                                      Number(event.target.value) * 100,
+                                    ),
+                              )
+                            }
+                            className={`${input} mt-1`}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          aria-label={`Remove ZIP code ${rate.zip_code || index + 1}`}
+                          onClick={() =>
+                            update(
+                              "zip_rates",
+                              zipRates.filter((_, i) => i !== index),
+                            )
+                          }
+                          className="min-h-11 rounded-xl px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
 
             <fieldset disabled={busy} className={panel}>
               <legend className="sr-only">Weekly schedule</legend>
@@ -417,68 +566,73 @@ export default function AdminDelivery() {
               </div>
             </fieldset>
 
-            <fieldset disabled={busy} className={panel}>
-              <legend className="sr-only">Delivery prices</legend>
-              <h2 className="font-serif text-2xl">Mileage rates</h2>
-              <p className="mt-2 text-sm leading-6 text-[#796D6A]">
-                One-way driving distance. Each upper bound is inclusive; the
-                next band starts above it. Beyond the final band, customers must
-                contact the bakery or select pickup.
-              </p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {config.rates.map((band, index) => (
-                  <div key={index} className="rounded-xl bg-[#FAF7F5] p-4">
-                    <label className="block text-xs">
-                      Up to miles
-                      <input
-                        required
-                        type="number"
-                        min="0.1"
-                        step="0.1"
-                        className={`${input} mt-1`}
-                        value={band.up_to_miles}
-                        onChange={(e) =>
-                          update(
-                            "rates",
-                            config.rates.map((b, i) =>
-                              i === index
-                                ? { ...b, up_to_miles: Number(e.target.value) }
-                                : b,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                    <label className="mt-3 block text-xs">
-                      Fee ($)
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className={`${input} mt-1`}
-                        value={band.fee_cents / 100}
-                        onChange={(e) =>
-                          update(
-                            "rates",
-                            config.rates.map((b, i) =>
-                              i === index
-                                ? {
-                                    ...b,
-                                    fee_cents: Math.round(
-                                      Number(e.target.value) * 100,
-                                    ),
-                                  }
-                                : b,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </fieldset>
+            {!zipPricing && (
+              <fieldset disabled={busy} className={panel}>
+                <legend className="sr-only">Delivery prices</legend>
+                <h2 className="font-serif text-2xl">Mileage rates</h2>
+                <p className="mt-2 text-sm leading-6 text-[#796D6A]">
+                  One-way driving distance. Each upper bound is inclusive; the
+                  next band starts above it. Beyond the final band, customers
+                  must contact the bakery or select pickup.
+                </p>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {config.rates.map((band, index) => (
+                    <div key={index} className="rounded-xl bg-[#FAF7F5] p-4">
+                      <label className="block text-xs">
+                        Up to miles
+                        <input
+                          required
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          className={`${input} mt-1`}
+                          value={band.up_to_miles}
+                          onChange={(e) =>
+                            update(
+                              "rates",
+                              config.rates.map((b, i) =>
+                                i === index
+                                  ? {
+                                      ...b,
+                                      up_to_miles: Number(e.target.value),
+                                    }
+                                  : b,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="mt-3 block text-xs">
+                        Fee ($)
+                        <input
+                          required
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={`${input} mt-1`}
+                          value={band.fee_cents / 100}
+                          onChange={(e) =>
+                            update(
+                              "rates",
+                              config.rates.map((b, i) =>
+                                i === index
+                                  ? {
+                                      ...b,
+                                      fee_cents: Math.round(
+                                        Number(e.target.value) * 100,
+                                      ),
+                                    }
+                                  : b,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <button
               disabled={busy}
               type="submit"

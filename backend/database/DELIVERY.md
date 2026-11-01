@@ -1,5 +1,24 @@
 # Delivery and pickup
 
+ZIP-code pricing is available without Google or billing setup. In administration,
+select `zip_code` pricing and configure `zip_rates` rows with a five-digit
+`zip_code`, integer `fee_cents`, and optional `label`. Empty or duplicate tables
+cannot be enabled. ZIP+4 is normalized to its first five digits; unknown ZIPs
+require contact or pickup. No ZIP or fee is assigned automatically.
+
+Old configurations without `pricing_method` keep road-distance pricing.
+`delivery.sql` adds pricing-source and ZIP snapshots to quotes/orders, preserving
+historical orders. ZIP quotes have a null distance; no synthetic miles or Google
+calls are used. The backend rechecks fee, address, policy version, ownership and
+expiry before order creation. Charged order snapshots remain immutable after
+Checkout starts. Schedule, capacity, minimum purchase and reservation handling
+apply to both pricing methods.
+
+For ZIP setup or optional Google Cloud setup, follow the Spanish guide
+[DELIVERY_SETUP.md](../../DELIVERY_SETUP.md). `npm.cmd run delivery:check` checks
+configuration without network requests or database writes; adding
+`-- --destination "..."` measures one live route without enabling delivery.
+
 Run `npm.cmd run db:delivery` from `backend` to install the additive schema in
 the local development database. `npm.cmd run test:checkout` prepares the isolated
 test database and runs delivery and payment validation. The installer is

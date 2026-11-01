@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { feeForMeters, houstonInstant, houstonDate, scheduleForDate,
-  validateAppointment, validateDeliveryConfig } from "../src/services/deliveryPolicy.service.js";
+  validateAppointment, validateDeliveryConfig, feeForZip, normalizeZip } from "../src/services/deliveryPolicy.service.js";
 import { roadDistance } from "../src/services/roadDistance.service.js";
 
 const rates = [{ up_to_miles: 3, fee_cents: 500 }, { up_to_miles: 5, fee_cents: 700 },
@@ -11,6 +11,25 @@ function config() {
     minimum_subtotal_cents: 1400, minimum_scope: "delivery", pickup_same_hours: false, rates,
     weekly_hours: Array.from({ length: 7 }, (_, day) => ({ enabled: true, start: day <= 3 ? "18:00" : "19:00", end: day <= 3 ? "21:00" : "22:00" })), date_overrides: [] };
 }
+
+test("ZIP pricing uses explicit configured fees, supports ZIP+4 and leaves unlisted codes unquoted", () => {
+  const zipRates = [{ zip_code: "77449", fee_cents: 500 }, { zip_code: "77084", fee_cents: 0 }];
+  assert.equal(normalizeZip(" 77449-1234 "), "77449");
+  assert.equal(feeForZip("77449-1234", zipRates), 500);
+  assert.equal(feeForZip("77084", zipRates), 0, "an explicitly configured zero fee remains valid");
+  assert.equal(feeForZip("77450", zipRates), null, "unknown ZIP never becomes free delivery");
+  for (const value of [77449, "7744", "77449-extra", ""]) assert.throws(() => normalizeZip(value));
+});
+
+test("ZIP configuration does not require an origin but rejects duplicate, malformed or missing rates", () => {
+  const policy = { ...config(), pricing_method: "zip_code", origin_address: "", zip_rates: [{ zip_code: "77449", fee_cents: 500, label: "Test zone" }] };
+  assert.doesNotThrow(() => validateDeliveryConfig(policy));
+  for (const zip_rates of [[], [{ zip_code: "7744", fee_cents: 500 }], [{ zip_code: "77449", fee_cents: -1 }], [policy.zip_rates[0], policy.zip_rates[0]]]) {
+    assert.throws(() => validateDeliveryConfig({ ...policy, zip_rates }));
+  }
+  assert.throws(() => validateDeliveryConfig({ ...policy, pricing_method: "anything" }));
+  assert.doesNotThrow(() => validateDeliveryConfig({ ...policy, delivery_enabled: false, zip_rates: [] }));
+});
 
 test("unrounded driving meters determine every boundary without overlapping bands", () => {
   for (const [meters, fee] of [[0, 500], [4828, 500], [4829, 700], [8046, 700], [8047, 1200],

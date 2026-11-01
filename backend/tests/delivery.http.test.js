@@ -141,7 +141,53 @@ test("admin scheduling, trusted quotes, last-slot concurrency, Stripe fees and e
     assert.equal(Number((await pool.query("SELECT stock FROM product_variants WHERE id=$1", [ids.variant])).rows[0].stock), 97);
     const snapshot = (await admin.get(`/api/admin/orders/${next.body.order.id}`).expect(200)).body.order;
     assert.equal(snapshot.fulfillment_method, "delivery"); assert.equal(snapshot.delivery_distance_meters, 4828);
+    // ZIP rates work without Google or a departure address. All fees below are
+    // isolated test fixtures, never business defaults or production settings.
+    process.env.GOOGLE_ROUTES_API_KEY = "";
+    const previousRouteCalls = routeCalls;
+    await save({ ...settings.config, pricing_method: "zip_code", origin_address: "", daily_limit: 2,
+      zip_rates: [{ zip_code: "77449", fee_cents: 500, label: "Test Katy zone" }, { zip_code: "77084", fee_cents: 700, label: "Test Houston zone" }] });
+    const zipOptions = (await request(app).get("/api/delivery/options").expect(200)).body.options;
+    assert.equal(zipOptions.delivery_available, true);
+    assert.equal(zipOptions.pricing_method, "zip_code");
+    assert.deepEqual(zipOptions.zip_rates, settings.config.zip_rates);
+    await admin.put("/api/admin/delivery").set("X-CSRF-Token", csrf).send({ version: settings.version, config: { ...settings.config, zip_rates: [] } }).expect(400);
+    const z = await buyer(), zOther = await buyer(3, ids.variantB), zSmall = await buyer(1);
+    const zipAddress = { ...address, shipping_zip_code: "77449-1234" };
+    const zQuote = (await quote(z, zipAddress).expect(200)).body.quote;
+    assert.equal(zQuote.pricing_method, "zip_code");
+    assert.equal(zQuote.destination_zip_code, "77449");
+    assert.equal(zQuote.distance_meters, null);
+    assert.equal(zQuote.distance_miles, null);
+    assert.equal(zQuote.fee_cents, 500);
+    assert.equal((await quote(z, zipAddress).expect(200)).body.quote.id, zQuote.id);
+    assert.equal((await quote(zOther, { ...address, shipping_zip_code: "77450" }).expect(422)).body.code, "DELIVERY_OUTSIDE_AREA");
+    assert.equal((await order(zSmall, { delivery_quote_id: zQuote.id })).body.code, "DELIVERY_MINIMUM");
+    assert.equal((await order(zOther, { delivery_quote_id: zQuote.id, shipping_zip_code: "77449-1234" })).body.code, "DELIVERY_QUOTE_EXPIRED");
+    await pool.query("UPDATE delivery_quotes SET fee_cents=1 WHERE id=$1", [zQuote.id]);
+    assert.equal((await order(z, { delivery_quote_id: zQuote.id, shipping_zip_code: "77449-1234" })).body.code, "DELIVERY_QUOTE_EXPIRED");
+    await pool.query("UPDATE delivery_quotes SET fee_cents=500 WHERE id=$1", [zQuote.id]);
+    const zOrder = await order(z, { delivery_quote_id: zQuote.id, shipping_zip_code: "77449-1234", shipping_cost: 0, distance_miles: 0 });
+    assert.equal(zOrder.status, 201);
+    assert.equal(zOrder.body.order.delivery_pricing_method, "zip_code");
+    assert.equal(zOrder.body.order.delivery_zip_code, "77449");
+    assert.equal(zOrder.body.order.delivery_distance_meters, null);
+    assert.equal(Number(zOrder.body.order.shipping_cost), 5);
+    const otherQuote = (await quote(zOther).expect(200)).body.quote;
+    assert.equal((await order(zOther, { delivery_quote_id: otherQuote.id })).body.code, "DELIVERY_FULL");
+    await save({ ...settings.config, zip_rates: settings.config.zip_rates.map((rate) => ({ ...rate, fee_cents: rate.fee_cents + 400 })) });
+    assert.equal((await order(zOther, { delivery_quote_id: otherQuote.id })).body.code, "DELIVERY_QUOTE_EXPIRED");
+    await checkout(z, zOrder.body.order.id).expect(200);
+    assert.equal(createdAmounts.at(-1), 2300, "Stripe keeps the original five-dollar ZIP fee after a price edit");
+    await assert.rejects(pool.query("UPDATE orders SET delivery_zip_code='77084' WHERE id=$1", [zOrder.body.order.id]), /Delivery details cannot change/);
+    assert.equal((await admin.get(`/api/admin/orders/${zOrder.body.order.id}`).expect(200)).body.order.delivery_zip_code, "77449");
+    assert.equal(routeCalls, previousRouteCalls, "ZIP mode must not call Google Routes");
+    assert.equal((await webhook("checkout.session.expired", { status: "expired", payment_status: "unpaid" })).status, 200);
+    const freshZipQuote = (await quote(zOther).expect(200)).body.quote;
+    assert.equal(freshZipQuote.fee_cents, 900);
+    assert.equal((await order(zOther, { delivery_quote_id: freshZipQuote.id })).status, 201, "expired Checkout releases the ZIP delivery place");
     console.log("Delivery verified: private origin, $14 delivery minimum, no pickup fee, one last-slot winner, trusted fees in Stripe and expiration release.");
+    console.log("ZIP delivery verified: no Google/key required, explicit fees, ZIP+4, unknown-area contact, no fake distance, trusted immutable fees and capacity release.");
   } finally {
     if (oldKey === undefined) delete process.env.GOOGLE_ROUTES_API_KEY; else process.env.GOOGLE_ROUTES_API_KEY = oldKey;
     if (oldSecret === undefined) delete process.env.STRIPE_WEBHOOK_SECRET; else process.env.STRIPE_WEBHOOK_SECRET = oldSecret;

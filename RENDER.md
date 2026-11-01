@@ -89,8 +89,10 @@ de una cuenta que ya existe.
 Los pagos y las notificaciones están desactivados. Para probar cargas de fotos,
 añade `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en
 **Environment** del servicio web. Se usa la carpeta de pruebas de Cloudinary.
-Para habilitar cotizaciones de delivery también hacen falta la dirección de
-salida y `GOOGLE_ROUTES_API_KEY`; pickup puede probarse mientras tanto.
+Para delivery sin servicios externos, selecciona **ZIP codes · fixed fees** en
+administración y añade las tarifas aprobadas. Consulta [DELIVERY_SETUP.md](DELIVERY_SETUP.md).
+La dirección de salida y `GOOGLE_ROUTES_API_KEY` se requieren solamente para
+el método alternativo de millas por carretera.
 
 Con el plan Free, la aplicación se suspende tras 15 minutos sin tráfico y puede
 tardar aproximadamente un minuto en despertar. La base gratuita caduca a los

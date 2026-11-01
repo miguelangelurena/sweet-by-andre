@@ -16,6 +16,7 @@ const files = [
   "testInventoryMismatch.js",
   "testInventoryMissingVariant.js",
   "delivery-policy.unit.test.js",
+  "delivery-check.unit.test.js",
   "delivery.http.test.js",
   "testStripeCheckoutRequest.js",
   "testCheckoutOrchestrator.js",

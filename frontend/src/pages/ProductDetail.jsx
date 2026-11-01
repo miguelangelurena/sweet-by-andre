@@ -6,9 +6,10 @@ import { compareOptionLabels } from "../utils/naturalSort";
 
 // Set VITE_API_BASE_URL in frontend/.env to the Express origin (without /api).
 // For local development the default expects Express on port 3000.
-const API_BASE_URL = (
-    import.meta.env.VITE_API_BASE_URL || ""
-).replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(
+  /\/$/,
+  "",
+);
 
 async function guestCartRequest(path, options = {}) {
   let response;
@@ -117,7 +118,9 @@ export default function ProductDetail({ productId }) {
     return [...groups.values()].map((group) => ({
       ...group,
       // Numeric-aware ordering: 4" < 6" < 8" < 10", 2 pieces < 6 pieces.
-      values: [...group.values.values()].sort((a,b) => compareOptionLabels(a.label,b.label)),
+      values: [...group.values.values()].sort((a, b) =>
+        compareOptionLabels(a.label, b.label),
+      ),
     }));
   }, [variants]);
 
@@ -173,6 +176,7 @@ export default function ProductDetail({ productId }) {
     }
     setSelectedValues(next);
     setQuantity(1);
+    setCartMessage("");
   }
 
   async function handleAddToCart() {
@@ -233,8 +237,14 @@ export default function ProductDetail({ productId }) {
 
   const images = product.images ?? [];
   const madeToOrder = product.inventory_mode === "made_to_order";
-  const inStock = Boolean(selectedVariant) && (madeToOrder || Number(selectedVariant.stock) > 0);
-  const maxQuantity = inStock ? madeToOrder ? Number.MAX_SAFE_INTEGER : Math.floor(Number(selectedVariant.stock)) : 0;
+  const inStock =
+    Boolean(selectedVariant) &&
+    (madeToOrder || Number(selectedVariant.stock) > 0);
+  const maxQuantity = inStock
+    ? madeToOrder
+      ? Number.MAX_SAFE_INTEGER
+      : Math.floor(Number(selectedVariant.stock))
+    : 0;
   const subtotal = selectedVariant
     ? Number(selectedVariant.price) * quantity
     : 0;
@@ -246,7 +256,7 @@ export default function ProductDetail({ productId }) {
           href="#catalog"
           className="mb-8 inline-block text-sm font-medium text-[#B76473] hover:underline"
         >
-          ← Back to our menu
+          Back to our menu
         </a>
 
         <div className="grid gap-12 lg:grid-cols-2">
@@ -311,12 +321,18 @@ export default function ProductDetail({ productId }) {
               <div className="mt-8 space-y-5 border-t border-[#E7DCD9] pt-7">
                 {optionGroups.map((group) => (
                   <div key={group.id}>
-                    <p className="mb-2 text-sm font-semibold text-[#282323]">{group.name}</p>
+                    <p className="mb-2 text-sm font-semibold text-[#282323]">
+                      {group.name}
+                    </p>
                     <MinimalSelect
                       label={group.name}
                       value={selectedValues[group.id] ?? ""}
                       onChange={(nextValue) => chooseValue(group.id, nextValue)}
-                      options={group.values.map((v) => ({ value: v.id, label: v.label, disabled: !valueIsSelectable(group.id, v.id) }))}
+                      options={group.values.map((v) => ({
+                        value: v.id,
+                        label: v.label,
+                        disabled: !valueIsSelectable(group.id, v.id),
+                      }))}
                     />
                   </div>
                 ))}
@@ -328,7 +344,9 @@ export default function ProductDetail({ productId }) {
                 className={`text-sm font-semibold ${inStock ? "text-green-700" : "text-[#A29A97]"}`}
               >
                 {inStock
-                  ? madeToOrder ? "Made to order · date availability checked at checkout" : `Available (${maxQuantity} in stock)`
+                  ? madeToOrder
+                    ? "Made to order · date availability checked at checkout"
+                    : `Available (${maxQuantity} in stock)`
                   : "Currently unavailable"}
               </p>
               <div className="mt-7">
@@ -399,13 +417,21 @@ export default function ProductDetail({ productId }) {
                     : "Add to Cart"}
               </button>
               {cartMessage && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="mt-3 text-sm text-green-700"
-                >
-                  {cartMessage}
-                </p>
+                <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="text-sm text-green-800"
+                  >
+                    {cartMessage}
+                  </p>
+                  <a
+                    href="#cart"
+                    className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
+                  >
+                    View cart &amp; continue →
+                  </a>
+                </div>
               )}
               {cartError && (
                 <p role="alert" className="mt-3 text-sm text-red-700">

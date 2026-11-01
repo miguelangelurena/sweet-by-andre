@@ -19,7 +19,7 @@ async function request(path, options = {}) {
     });
   } catch {
     throw new Error(
-      "Cannot connect to the shop. Please check that the backend is running.",
+      "Cannot connect to the shop. Please check your connection and try again.",
     );
   }
   const payload = await response.json().catch(() => null);
@@ -45,6 +45,8 @@ export default function Cart({ onContinueShopping, onCheckout }) {
   const [busyItemId, setBusyItemId] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const paymentsEnabled =
+    import.meta.env.VITE_ENABLE_STRIPE_CHECKOUT === "true";
 
   const loadCart = useCallback(async () => {
     const data = await request("/guest/cart");
@@ -115,6 +117,27 @@ export default function Cart({ onContinueShopping, onCheckout }) {
     0,
   );
 
+  async function acceptPrices() {
+    if (anyBusy) return;
+    setBusyItemId("price-review");
+    setError("");
+    setNotice("");
+    try {
+      const csrf = await getCsrfToken();
+      await request("/guest/cart/accept-price-changes", {
+        method: "PATCH",
+        headers: { "X-CSRF-Token": csrf },
+      });
+      await loadCart();
+      setNotice("Current prices accepted. You can continue to checkout.");
+    } catch (err) {
+      setError(err.message);
+      await loadCart().catch(() => {});
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#FAF7F5] px-4 py-10 text-[#282323] sm:px-6 lg:py-16">
       <div className="mx-auto max-w-5xl">
@@ -124,7 +147,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
           disabled={!onContinueShopping}
           className="text-sm font-medium text-[#B76473] hover:underline disabled:cursor-default disabled:opacity-50"
         >
-          ← Continue shopping
+          Continue shopping
         </button>
         <div className="mb-9 mt-7 flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-serif text-4xl sm:text-5xl">Your Cart</h1>
@@ -189,11 +212,11 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                 return (
                   <article
                     key={item.id}
-                    className="rounded-3xl border border-[#E7DCD9] bg-white p-5 sm:p-6"
+                    className="rounded-3xl border border-[#E7DCD9] bg-white p-4 sm:p-6"
                   >
                     <div className="flex flex-wrap justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <h2 className="font-serif text-2xl">
+                        <h2 className="break-words font-serif text-xl sm:text-2xl">
                           {item.product_name}
                         </h2>
                         {(item.options ?? []).map((option, index) => (
@@ -205,7 +228,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                           </p>
                         ))}
                         {item.notes && (
-                          <p className="mt-2 text-sm text-[#796D6A]">
+                          <p className="mt-2 break-words text-sm text-[#796D6A]">
                             Special instructions: {item.notes}
                           </p>
                         )}
@@ -246,7 +269,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                               Number(item.quantity) - 1,
                             )
                           }
-                          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E7DCD9] disabled:opacity-40"
+                          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] disabled:opacity-40"
                         >
                           −
                         </button>
@@ -268,7 +291,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                               Number(item.quantity) + 1,
                             )
                           }
-                          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E7DCD9] disabled:opacity-40"
+                          className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] disabled:opacity-40"
                         >
                           +
                         </button>
@@ -277,7 +300,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                         type="button"
                         disabled={busy}
                         onClick={() => changeItem(item.id, "DELETE")}
-                        className="text-sm font-semibold text-[#B76473] hover:underline disabled:opacity-40"
+                        className="min-h-11 text-sm font-semibold text-[#B76473] hover:underline disabled:opacity-40"
                       >
                         {busyItemId === item.id ? "Updating..." : "Remove"}
                       </button>
@@ -286,7 +309,7 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                 );
               })}
             </section>
-            <aside className="rounded-3xl border border-[#E7DCD9] bg-white p-6">
+            <aside className="rounded-3xl border border-[#E7DCD9] bg-white p-5 sm:p-6 lg:sticky lg:top-6">
               <h2 className="font-serif text-2xl">Order Summary</h2>
               <div className="mt-6 flex items-center justify-between text-sm">
                 <span className="text-[#796D6A]">Subtotal</span>
@@ -295,14 +318,26 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                 </span>
               </div>
               <p className="mt-4 text-xs leading-5 text-[#796D6A]">
-                Taxes and delivery charges are calculated at checkout. Prices
-                and availability are confirmed before payment.
+                Choose pickup or delivery at checkout and review your order
+                estimate. Please order at least 48 hours ahead.
               </p>
               {cart.has_price_changes && (
-                <p className="mt-4 text-sm text-amber-800">
-                  Some prices have changed. Price acceptance will be handled in
-                  the checkout flow.
-                </p>
+                <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                  <p>
+                    Some prices have changed. Review the updated prices above
+                    before accepting them.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={acceptPrices}
+                    disabled={anyBusy || cart.has_unavailable_items}
+                    className="mt-3 min-h-11 w-full rounded-full border border-amber-700 px-3 py-2 font-semibold disabled:opacity-50"
+                  >
+                    {busyItemId === "price-review"
+                      ? "Accepting prices..."
+                      : "Accept current prices"}
+                  </button>
+                </div>
               )}
               {cart.has_unavailable_items && (
                 <p className="mt-4 text-sm text-red-700">
@@ -320,11 +355,12 @@ export default function Cart({ onContinueShopping, onCheckout }) {
                 onClick={onCheckout}
                 className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Continue to delivery details
+                Continue to pickup &amp; delivery
               </button>
               <p className="mt-3 text-xs leading-5 text-[#796D6A]">
-                Online payment is not enabled yet. You can prepare a pending
-                order.
+                {paymentsEnabled
+                  ? "No charge yet. Secure payment comes after your order details."
+                  : "Online payments are currently unavailable. You can save an order request without a charge."}
               </p>
             </aside>
           </div>

@@ -785,7 +785,10 @@ export default function AdminOrders() {
                     <DetailField title="Requested time (Houston / Katy)">
                       {formatDate(order.fulfillment_at ?? order.delivery_date)}
                     </DetailField>
-                    {order.fulfillment_method === "delivery" && (
+                    {order.fulfillment_method === "delivery" && order.delivery_pricing_method === "zip_code" && (
+                      <DetailField title="Delivery pricing">Fixed ZIP-code fee · {order.delivery_zip_code ?? order.shipping_zip_code}</DetailField>
+                    )}
+                    {order.fulfillment_method === "delivery" && order.delivery_distance_meters != null && (
                       <DetailField title="Road distance">
                         {(order.delivery_distance_meters / 1609.344).toFixed(2)}{" "}
                         miles

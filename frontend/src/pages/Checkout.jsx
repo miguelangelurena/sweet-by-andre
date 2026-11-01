@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import FulfillmentFields from "../components/checkout/FulfillmentFields";
 import {
+  deliveryAddressFields,
+  fulfillmentAvailability,
+  formatServiceDate,
+  formatServiceTime,
+} from "../utils/fulfillment";
+import {
+  apiRequest,
   createGuestPendingOrder,
   ensureGuestCart,
   getGuestCart,
@@ -14,8 +21,7 @@ const money = (value) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     Number(value ?? 0),
   );
-
-const fields = [
+const contactFields = [
   { name: "shipping_name", label: "Full name", autoComplete: "name" },
   {
     name: "customer_email",
@@ -29,12 +35,19 @@ const fields = [
     type: "tel",
     autoComplete: "tel",
   },
+];
+const addressFields = [
+  {
+    name: "shipping_street_number",
+    label: "Street number",
+    placeholder: "1234",
+  },
   {
     name: "shipping_street",
     label: "Street name",
+    placeholder: "Example Drive",
     autoComplete: "address-line1",
   },
-  { name: "shipping_street_number", label: "Street number" },
   {
     name: "shipping_unit",
     label: "Apartment / unit (optional)",
@@ -42,10 +55,22 @@ const fields = [
     autoComplete: "address-line2",
   },
   { name: "shipping_city", label: "City", autoComplete: "address-level2" },
-  { name: "shipping_state", label: "State", autoComplete: "address-level1" },
-  { name: "shipping_zip_code", label: "ZIP code", autoComplete: "postal-code" },
+  {
+    name: "shipping_state",
+    label: "State (Texas)",
+    autoComplete: "address-level1",
+    pattern: "[Tt][Xx]",
+    maxLength: 2,
+  },
+  {
+    name: "shipping_zip_code",
+    label: "ZIP code",
+    autoComplete: "postal-code",
+    inputMode: "numeric",
+    pattern: "[0-9]{5}(-[0-9]{4})?",
+    maxLength: 10,
+  },
 ];
-
 const initialForm = {
   shipping_name: "",
   customer_email: "",
@@ -63,9 +88,7 @@ const initialForm = {
   fulfillment_date: "",
   fulfillment_time: "",
 };
-
 const ORDER_REQUEST_KEY = "sba:pending-order-request:v1";
-
 function readSavedRequest() {
   try {
     return JSON.parse(sessionStorage.getItem(ORDER_REQUEST_KEY) || "null");
@@ -74,8 +97,36 @@ function readSavedRequest() {
   }
 }
 
+function CustomerFields({ fields, form, update }) {
+  return (
+    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      {fields.map((field) => (
+        <label key={field.name} className="min-w-0 text-sm font-medium">
+          <span className="mb-2 block">{field.label}</span>
+          <input
+            name={field.name}
+            type={field.type || "text"}
+            autoComplete={field.autoComplete}
+            inputMode={field.inputMode}
+            pattern={field.pattern}
+            placeholder={field.placeholder}
+            value={form[field.name]}
+            onChange={update}
+            required={field.required !== false}
+            maxLength={field.maxLength ?? 255}
+            className="min-h-12 min-w-0 w-full rounded-xl border border-[#E7DCD9] bg-white px-3 py-3 text-base focus:outline-[#B76473]"
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function Checkout({ onBack }) {
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => ({
+    ...initialForm,
+    ...readSavedRequest()?.payload,
+  }));
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -88,9 +139,42 @@ export default function Checkout({ onBack }) {
   const [quote, setQuote] = useState(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [quoteError, setQuoteError] = useState("");
+  const [order, setOrder] = useState(() => readSavedRequest()?.order ?? null);
+  const [orderVerified, setOrderVerified] = useState(false);
+  const errorRef = useRef(null);
+  const [unresolved, setUnresolved] = useState(() => {
+    const saved = readSavedRequest();
+    return Boolean(saved?.key && saved?.payload && !saved?.order);
+  });
   const paymentsEnabled =
     import.meta.env.VITE_ENABLE_STRIPE_CHECKOUT === "true";
-  const [order, setOrder] = useState(() => readSavedRequest()?.order ?? null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
+
+  const orderId = order?.id;
+  useEffect(() => {
+    if (!orderId) return;
+    let active = true;
+    apiRequest(`/guest/orders/${encodeURIComponent(orderId)}/status`)
+      .then((response) => {
+        if (!active) return;
+        setOrder((current) => ({ ...current, ...response.order }));
+        setOrderVerified(true);
+      })
+      .catch(() => {
+        if (active) {
+          setOrderVerified(false);
+          setError(
+            "We could not check the latest order status. Please reload before continuing to payment.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [orderId]);
 
   useEffect(() => {
     let active = true;
@@ -118,6 +202,21 @@ export default function Checkout({ onBack }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!quote) return;
+    const remaining = new Date(quote.expires_at).getTime() - Date.now();
+    const timer = setTimeout(
+      () => {
+        setQuote(null);
+        setQuoteError(
+          "Your delivery estimate expired. Please check the delivery fee again.",
+        );
+      },
+      Math.max(0, remaining),
+    );
+    return () => clearTimeout(timer);
+  }, [quote]);
+
   const items = cart?.items ?? [];
   const requiredProductionPoints = items.reduce(
     (sum, item) =>
@@ -127,25 +226,46 @@ export default function Checkout({ onBack }) {
         : 0),
     0,
   );
-  const productionDay = productionOptions?.days.find(
-    (day) => day.date === form.fulfillment_date,
+  const schedule = fulfillmentAvailability(
+    form,
+    deliveryOptions,
+    productionOptions,
+    requiredProductionPoints,
   );
-  const productionUnavailable =
-    requiredProductionPoints > 0 &&
-    (!productionOptions ||
-      (form.fulfillment_date &&
-        (!productionDay ||
-          productionDay.closed ||
-          (productionDay.remaining !== null &&
-            productionDay.remaining < requiredProductionPoints))));
+  const delivery = form.fulfillment_method === "delivery";
+  const subtotalCents = Math.round(Number(cart?.current_total ?? 0) * 100);
+  const belowMinimum =
+    deliveryOptions &&
+    (delivery || deliveryOptions.minimum_scope === "all") &&
+    subtotalCents < deliveryOptions.minimum_subtotal_cents;
   const ready =
     items.length > 0 &&
     !cart?.has_price_changes &&
     !cart?.has_unavailable_items &&
     items.every((item) => item.is_available);
+  const missingStep = !deliveryOptions
+    ? "Pickup and delivery options could not be loaded. Please reload to try again."
+    : delivery && !deliveryOptions.delivery_available
+      ? "Delivery is currently unavailable. Please choose pickup."
+      : belowMinimum
+        ? delivery && deliveryOptions.minimum_scope !== "all"
+          ? "Add more desserts to meet the minimum purchase, or choose pickup."
+          : "Add more desserts to meet the minimum purchase."
+        : !form.fulfillment_date
+          ? "Choose your pickup or delivery date."
+          : schedule.dateError ||
+            schedule.timeError ||
+            (!form.fulfillment_time ? "Choose your preferred time." : "") ||
+            (delivery && !quote
+              ? "Enter your address and check the delivery fee."
+              : "");
+  const estimate =
+    delivery && !quote
+      ? null
+      : (subtotalCents + (delivery ? quote.fee_cents : 0)) / 100;
 
   function update(event) {
-    if (quoteBusy) return;
+    if (quoteBusy || submitting) return;
     const { name, value, type, checked } = event.target;
     setForm((current) => ({
       ...current,
@@ -154,20 +274,25 @@ export default function Checkout({ onBack }) {
         ? { fulfillment_time: "" }
         : {}),
     }));
-    if (name.startsWith("shipping_") || name === "fulfillment_method") {
+    if (
+      [
+        ...deliveryAddressFields,
+        "shipping_unit",
+        "fulfillment_method",
+      ].includes(name)
+    ) {
       setQuote(null);
       setQuoteError("");
     }
   }
 
   async function calculateQuote() {
-    if (quoteBusy) return;
+    if (quoteBusy || submitting) return;
     setQuoteBusy(true);
     setQuoteError("");
     setQuote(null);
     try {
-      const result = await quoteGuestDelivery(form);
-      setQuote(result.quote);
+      setQuote((await quoteGuestDelivery(form)).quote);
     } catch (err) {
       setQuoteError(err.message);
     } finally {
@@ -175,14 +300,55 @@ export default function Checkout({ onBack }) {
     }
   }
 
+  async function completeRequest(request) {
+    const response = await createGuestPendingOrder(
+      request.payload,
+      request.key,
+    );
+    if (!response?.order?.id)
+      throw new Error("The server did not return an order ID.");
+    sessionStorage.setItem(
+      ORDER_REQUEST_KEY,
+      JSON.stringify({ ...request, order: response.order }),
+    );
+    setOrder(response.order);
+    setOrderVerified(true);
+    setUnresolved(false);
+    window.dispatchEvent(new Event("sweetbyandre:cart-updated"));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  async function reportOrderError(err) {
+    // Keep unknown outcomes recoverable with the original payload and key.
+    // A validation rejection is safe to correct; it did not create an order.
+    if (
+      (err.status === 400 ||
+        err.status === 422 ||
+        err.code?.startsWith("DELIVERY_") ||
+        err.code?.startsWith("PRODUCTION_")) &&
+      !readSavedRequest()?.order
+    ) {
+      sessionStorage.removeItem(ORDER_REQUEST_KEY);
+      setUnresolved(false);
+      if (err.code?.startsWith("DELIVERY_")) setQuote(null);
+    } else {
+      const saved = readSavedRequest();
+      setUnresolved(Boolean(saved?.key && saved?.payload && !saved?.order));
+    }
+    if (err.code?.startsWith("PRODUCTION_")) {
+      const fresh = await getProductionOptions().catch(() => null);
+      if (fresh) setProductionOptions(fresh.options);
+    }
+    setError(err.message || "Could not save your order. Please try again.");
+  }
+
   async function submit(event) {
     event.preventDefault();
-    if (submitting || order) return;
+    if (submitting || quoteBusy || order) return;
     setError("");
     setSubmitting(true);
-
     try {
-      // Refresh availability immediately before generating an order.
+      if (missingStep) throw new Error(missingStep);
       const fresh = await getGuestCart();
       const freshItems = fresh.cart?.items ?? [];
       if (
@@ -192,68 +358,69 @@ export default function Checkout({ onBack }) {
         freshItems.some((item) => !item.is_available)
       ) {
         setCart(fresh.cart);
-        throw new Error("Your cart needs review before creating an order.");
+        throw new Error(
+          "Your cart has changed. Please return to the cart to review it.",
+        );
       }
       if (
-        form.fulfillment_method === "delivery" &&
+        delivery &&
         (!quote || new Date(quote.expires_at).getTime() <= Date.now())
       )
         throw new Error(
-          "Calculate a current delivery quote before placing the order.",
+          "Please check the delivery fee again before saving your order.",
         );
       const payload = {
         ...form,
-        delivery_quote_id:
-          form.fulfillment_method === "delivery" ? quote.id : null,
+        delivery_quote_id: delivery ? quote.id : null,
       };
-      // Persist the same request ID and payload before sending it. A network
-      // timeout or refresh can then retry without creating a second order.
       const saved = readSavedRequest();
-      let request;
       if (saved?.order) {
         setOrder(saved.order);
         return;
-      } else if (saved?.key && saved?.payload) {
-        request = saved;
-        if (JSON.stringify(saved.payload) !== JSON.stringify(payload)) {
-          throw new Error(
-            "A previous order submission is unresolved. Restore the original details before retrying, or contact the bakery.",
-          );
-        }
-      } else {
+      }
+      let request = saved?.key && saved?.payload ? saved : null;
+      if (
+        request &&
+        JSON.stringify(request.payload) !== JSON.stringify(payload)
+      )
+        throw new Error(
+          "Please check your previous submission before starting another order.",
+        );
+      if (!request) {
         request = { key: crypto.randomUUID(), payload };
         sessionStorage.setItem(ORDER_REQUEST_KEY, JSON.stringify(request));
       }
-      const response = await createGuestPendingOrder(
-        request.payload,
-        request.key,
-      );
-      if (!response?.order?.id)
-        throw new Error("The server did not return an order ID.");
-      sessionStorage.setItem(
-        ORDER_REQUEST_KEY,
-        JSON.stringify({ ...request, order: response.order }),
-      );
-      setOrder(response.order);
+      await completeRequest(request);
     } catch (err) {
-      if (
-        (err.code?.startsWith("DELIVERY_") ||
-          err.code?.startsWith("PRODUCTION_")) &&
-        !readSavedRequest()?.order
-      )
-        sessionStorage.removeItem(ORDER_REQUEST_KEY);
-      if (err.code?.startsWith("PRODUCTION_")) {
-        const fresh = await getProductionOptions().catch(() => null);
-        if (fresh) setProductionOptions(fresh.options);
-      }
-      setError(err.message || "Could not create the order.");
+      await reportOrderError(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function retrySubmission() {
+    const saved = readSavedRequest();
+    if (submitting || !saved?.key || !saved?.payload) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await completeRequest(saved);
+    } catch (err) {
+      await reportOrderError(err);
     } finally {
       setSubmitting(false);
     }
   }
 
   async function proceedToStripe() {
-    if (!order?.id || !paymentsEnabled || paymentBusy) return;
+    if (
+      !order?.id ||
+      !orderVerified ||
+      order.payment_status === "paid" ||
+      !paymentsEnabled ||
+      paymentBusy
+    )
+      return;
     setPaymentError("");
     setDeliveryHoldExpired(false);
     setPaymentBusy(true);
@@ -264,11 +431,8 @@ export default function Checkout({ onBack }) {
         result.status !== "SUCCESS" ||
         url.protocol !== "https:" ||
         url.hostname !== "checkout.stripe.com"
-      ) {
-        throw new Error(
-          "Invalid Stripe Checkout destination. No redirect was performed.",
-        );
-      }
+      )
+        throw new Error("Could not open secure payment. Please try again.");
       window.location.assign(url.href);
     } catch (err) {
       setDeliveryHoldExpired(
@@ -279,221 +443,360 @@ export default function Checkout({ onBack }) {
     }
   }
 
+  const savedPayload = readSavedRequest()?.payload;
+  const paid = orderVerified && order?.payment_status === "paid";
+  const closed =
+    ["cancelled", "refund_pending", "completed"].includes(
+      order?.order_status,
+    ) || order?.payment_status === "refunded";
+  const orderStatusLabel =
+    {
+      pending: "Awaiting bakery acceptance",
+      confirmed: "Accepted",
+      preparing: "Being prepared",
+      ready: "Ready",
+      completed: "Completed",
+      cancelled: "Cancelled",
+      refund_pending: "Refund in progress",
+    }[order?.order_status] || "Awaiting bakery acceptance";
+  const appointment = order?.fulfillment_at
+    ? new Date(order.fulfillment_at)
+    : null;
+  const orderDate =
+    appointment && !Number.isNaN(appointment.getTime())
+      ? new Intl.DateTimeFormat("en-US", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "America/Chicago",
+        }).format(appointment)
+      : savedPayload?.fulfillment_date && savedPayload?.fulfillment_time
+        ? `${formatServiceDate(savedPayload.fulfillment_date)} at ${formatServiceTime(savedPayload.fulfillment_time)}`
+        : null;
+
   return (
-    <main className="min-h-screen bg-[#FAF7F5] px-4 py-10 text-[#282323] sm:px-6 lg:py-16">
+    <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 text-[#282323] sm:px-6 sm:py-10 lg:py-16">
       <div className="mx-auto max-w-5xl">
         <button
           type="button"
           onClick={onBack}
-          className="text-sm font-semibold text-[#B76473] hover:underline"
+          className="min-h-11 text-sm font-semibold text-[#B76473] hover:underline"
         >
-          Back to cart
+          ← Back to cart
         </button>
-        <h1 className="mb-3 mt-7 font-serif text-4xl sm:text-5xl">
-          Pickup &amp; delivery
+        <ol
+          aria-label="Checkout progress"
+          className="mt-2 flex items-center gap-2 text-xs text-[#796D6A] sm:gap-4"
+        >
+          <li>1. Cart</li>
+          <li aria-hidden="true">/</li>
+          <li
+            aria-current={!order ? "step" : undefined}
+            className={!order ? "font-semibold text-[#9E4F60]" : ""}
+          >
+            2. Details
+          </li>
+          <li aria-hidden="true">/</li>
+          <li
+            aria-current={order ? "step" : undefined}
+            className={order ? "font-semibold text-[#9E4F60]" : ""}
+          >
+            3. {paymentsEnabled ? "Payment" : "Order request"}
+          </li>
+        </ol>
+        <h1 className="mt-5 font-serif text-3xl sm:text-5xl">
+          {order ? "Your order request" : "Checkout"}
         </h1>
-        <p className="mb-8 text-sm text-[#796D6A]">
-          {paymentsEnabled
-            ? "Prepare your order. Full payment is collected through Stripe Checkout."
-            : "Prepare your order. Online payments are not available yet; no charge will be made."}
+        <p className="mt-3 mb-6 max-w-xl text-sm leading-6 text-[#796D6A]">
+          {order
+            ? "Your order details are saved. See what happens next below."
+            : "Choose pickup or delivery and review your details. No payment is taken on this page."}
         </p>
-
         {error && (
           <p
             role="alert"
-            className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+            ref={errorRef}
+            tabIndex={-1}
+            className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800"
           >
             {error}
           </p>
         )}
+
         {loading ? (
-          <p>Loading your cart...</p>
+          <p role="status" className="py-8 text-sm text-[#796D6A]">
+            Getting your cart and available dates ready...
+          </p>
         ) : order ? (
-          <section className="rounded-3xl border border-[#E7DCD9] bg-white p-8">
-            <h2 className="font-serif text-3xl">Pending order created</h2>
-            <p className="mt-4 text-[#796D6A]">
-              Your order has been saved, but it has not been paid or confirmed
-              by the bakery.
+          <section className="rounded-3xl border border-[#E7DCD9] bg-white p-5 sm:p-8">
+            <span className="inline-block rounded-full bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+              {!orderVerified
+                ? "Checking order status…"
+                : paid
+                  ? `Paid · ${orderStatusLabel.toLowerCase()}`
+                  : closed
+                    ? orderStatusLabel
+                    : "Awaiting payment & bakery confirmation"}
+            </span>
+            <h2 className="mt-4 font-serif text-2xl sm:text-3xl">
+              {paid
+                ? "Payment received"
+                : closed
+                  ? "Your order status"
+                  : "Order request saved"}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[#796D6A]">
+              {!orderVerified
+                ? "Checking the latest status of your saved order."
+                : paid
+                  ? `Your payment has been verified. ${order.order_status === "pending" ? "Andrea still needs to accept your order." : "See the bakery's current progress below."}`
+                  : closed
+                    ? "Contact Andrea if you have questions about this order."
+                    : "Your order has been saved. It has not been paid or accepted by the bakery yet."}
             </p>
-            <p className="mt-4 break-all text-sm">
-              <strong>Order ID:</strong> {order.id}
-            </p>
-            <p className="mt-2 text-lg font-semibold">
-              Total: {money(order.total)}
-            </p>
-            <p className="mt-2 text-sm text-[#796D6A]">
-              {order.fulfillment_method === "delivery"
-                ? `Delivery fee: ${money(order.shipping_cost)}`
-                : order.fulfillment_method === "pickup"
-                  ? "Pickup · no delivery fee"
-                  : "Contact the bakery to confirm fulfillment details."}
-            </p>
-            <div className="mt-7 rounded-2xl border border-[#E7DCD9] bg-[#FAF7F5] p-5">
-              <h3 className="font-serif text-2xl">Payment</h3>
-              <p className="mt-2 text-sm text-[#796D6A]">
-                Full payment: {money(order.total)} (100%). A pending order is
-                not a paid order.
-              </p>
-              {paymentError && (
-                <p role="alert" className="mt-3 text-sm text-red-700">
-                  {paymentError}
-                </p>
+            <dl className="mt-5 space-y-3 text-sm">
+              <div>
+                <dt className="font-medium">Order number</dt>
+                <dd className="mt-1 break-all text-[#796D6A]">{order.id}</dd>
+              </div>
+              <div>
+                <dt className="font-medium">
+                  {order.fulfillment_method === "delivery"
+                    ? "Delivery"
+                    : "Pickup"}
+                </dt>
+                <dd className="mt-1 text-[#796D6A]">
+                  {orderDate
+                    ? `${orderDate} · Houston time`
+                    : "Contact the bakery to confirm your arrangements."}
+                </dd>
+              </div>
+              {order.fulfillment_method === "pickup" && (
+                <div className="rounded-xl bg-[#FAF7F5] p-3 text-[#796D6A]">
+                  Your pickup time is a request. Andrea will coordinate the time
+                  and location with you.
+                </div>
               )}
-              {deliveryHoldExpired && (
-                <button
-                  type="button"
-                  className="mt-3 text-sm font-semibold text-[#9E4F60] underline"
-                  onClick={() => {
-                    const saved = readSavedRequest();
-                    setForm({
-                      ...initialForm,
-                      ...saved?.payload,
-                      fulfillment_time: "",
-                    });
-                    sessionStorage.removeItem(ORDER_REQUEST_KEY);
-                    setOrder(null);
-                    setQuote(null);
-                    setPaymentError("");
-                    setDeliveryHoldExpired(false);
-                  }}
+              <div className="flex justify-between gap-3 border-t border-[#E7DCD9] pt-4 text-lg font-semibold">
+                <dt>Order total</dt>
+                <dd>{money(order.total)}</dd>
+              </div>
+              {order.fulfillment_method === "delivery" && (
+                <div className="flex justify-between gap-3 text-[#796D6A]">
+                  <dt>Delivery fee included</dt>
+                  <dd>{money(order.shipping_cost)}</dd>
+                </div>
+              )}
+            </dl>
+            {paid || closed ? (
+              <div className="mt-6 rounded-2xl bg-[#FAF7F5] p-4">
+                <p className="text-sm font-semibold">{orderStatusLabel}</p>
+                <a
+                  href="mailto:sweetbyandre@gmail.com"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
                 >
-                  Start a new order and check availability again
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={proceedToStripe}
-                disabled={!paymentsEnabled || paymentBusy}
-                className="mt-4 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                {paymentBusy
-                  ? "Preparing secure checkout..."
-                  : "Proceed to secure payment"}
-              </button>
-              <p className="mt-3 text-xs leading-5 text-[#796D6A]">
-                {paymentsEnabled
-                  ? "Test mode only: activate the backend only with an approved Stripe test account. Do not enter real card details."
-                  : "Online payments are disabled while the bakery's Stripe account is being configured. No charge will be made."}
-              </p>
-            </div>
+                  Contact Andrea about this order
+                </a>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-[#E7DCD9] bg-[#FAF7F5] p-4 sm:p-5">
+                <h3 className="font-serif text-2xl">
+                  {paymentsEnabled
+                    ? "Next: secure payment"
+                    : "What happens next?"}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[#796D6A]">
+                  {paymentsEnabled
+                    ? `Continue to Stripe to pay the full order amount of ${money(order.total)}. Payment confirmation and bakery acceptance are separate steps.`
+                    : "Online payments are currently unavailable. Contact Andrea with your order number to coordinate the next steps. Your request is not a confirmed booking."}
+                </p>
+                {paymentError && (
+                  <p role="alert" className="mt-3 text-sm text-red-700">
+                    {paymentError}
+                  </p>
+                )}
+                {deliveryHoldExpired && (
+                  <button
+                    type="button"
+                    className="mt-3 min-h-11 text-sm font-semibold text-[#9E4F60] underline"
+                    onClick={() => {
+                      setForm({
+                        ...initialForm,
+                        ...savedPayload,
+                        fulfillment_time: "",
+                      });
+                      sessionStorage.removeItem(ORDER_REQUEST_KEY);
+                      setOrder(null);
+                      setOrderVerified(false);
+                      setUnresolved(false);
+                      setQuote(null);
+                      setPaymentError("");
+                      setDeliveryHoldExpired(false);
+                    }}
+                  >
+                    Choose a new date and start a new order
+                  </button>
+                )}
+                {paymentsEnabled ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={proceedToStripe}
+                      disabled={
+                        !orderVerified || paymentBusy || deliveryHoldExpired
+                      }
+                      className="mt-4 min-h-12 w-full rounded-full bg-[#B76473] px-5 py-4 font-semibold text-white disabled:opacity-55"
+                    >
+                      {paymentBusy
+                        ? "Preparing secure payment..."
+                        : "Proceed to secure payment"}
+                    </button>
+                    <p className="mt-3 text-xs leading-5 text-[#796D6A]">
+                      Test payments only. Do not enter real card details.
+                    </p>
+                  </>
+                ) : (
+                  <a
+                    href="mailto:sweetbyandre@gmail.com"
+                    className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#B76473] px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Contact Andrea
+                  </a>
+                )}
+              </div>
+            )}
+          </section>
+        ) : unresolved ? (
+          <section className="rounded-3xl border border-[#E7DCD9] bg-white p-5 sm:p-8">
+            <h2 className="font-serif text-2xl">
+              Let's check your last submission
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[#796D6A]">
+              We have your submitted details but could not confirm the response.
+              Check that same request before creating another order.
+            </p>
             <button
               type="button"
-              onClick={onBack}
-              className="mt-6 rounded-full border border-[#B76473] px-6 py-3 font-semibold text-[#B76473]"
+              disabled={submitting}
+              onClick={retrySubmission}
+              className="mt-5 min-h-12 w-full rounded-full bg-[#B76473] px-5 py-3 font-semibold text-white disabled:opacity-50"
             >
-              Back to cart
+              {submitting
+                ? "Checking your order..."
+                : "Check previous submission"}
             </button>
+            <a
+              href="mailto:sweetbyandre@gmail.com"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
+            >
+              Contact the bakery for help
+            </a>
           </section>
         ) : !ready ? (
-          <section className="rounded-3xl bg-white p-8">
-            <p className="text-[#796D6A]">
-              Your cart is empty or has items that require review before
-              checkout.
+          <section className="rounded-3xl border border-[#E7DCD9] bg-white p-5 sm:p-8">
+            <h2 className="font-serif text-2xl">Let's review your cart</h2>
+            <p className="mt-3 text-sm leading-6 text-[#796D6A]">
+              Your cart is empty or some items have changed. Review the prices
+              and availability before continuing.
             </p>
             <button
               type="button"
               onClick={onBack}
-              className="mt-5 rounded-full bg-[#B76473] px-6 py-3 font-semibold text-white"
+              className="mt-5 min-h-12 rounded-full bg-[#B76473] px-6 py-3 font-semibold text-white"
             >
               Review cart
             </button>
           </section>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-            <form
-              id="delivery-form"
-              onSubmit={submit}
-              className="rounded-3xl border border-[#E7DCD9] bg-white p-6 sm:p-8"
+          <form
+            onSubmit={submit}
+            className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
+          >
+            <fieldset
+              disabled={submitting || quoteBusy}
+              className="min-w-0 space-y-6 rounded-3xl border border-[#E7DCD9] bg-white p-4 sm:p-8"
             >
-              <fieldset disabled={submitting || quoteBusy}>
-                <h2 className="mb-6 font-serif text-2xl">
-                  Contact and fulfillment
+              <section aria-labelledby="contact-title">
+                <h2 id="contact-title" className="font-serif text-2xl">
+                  1. Your contact details
                 </h2>
-                {deliveryOptions ? (
-                  <FulfillmentFields
+                <p className="mt-2 mb-4 text-sm leading-6 text-[#796D6A]">
+                  So Andrea can reach you about your order. All fields are
+                  required unless marked optional.
+                </p>
+                <CustomerFields
+                  fields={contactFields}
+                  form={form}
+                  update={update}
+                />
+              </section>
+              {deliveryOptions ? (
+                <FulfillmentFields
+                  form={form}
+                  update={update}
+                  options={deliveryOptions}
+                  production={productionOptions}
+                  requiredPoints={requiredProductionPoints}
+                  quote={quote}
+                  quoteBusy={quoteBusy}
+                  quoteError={quoteError}
+                  calculateQuote={calculateQuote}
+                  subtotalCents={subtotalCents}
+                >
+                  <CustomerFields
+                    fields={addressFields}
                     form={form}
                     update={update}
-                    options={deliveryOptions}
-                    production={productionOptions}
-                    requiredPoints={requiredProductionPoints}
-                    quote={quote}
-                    quoteBusy={quoteBusy}
-                    quoteError={quoteError}
-                    calculateQuote={calculateQuote}
-                    subtotalCents={Math.round(
-                      Number(cart?.current_total ?? 0) * 100,
-                    )}
                   />
-                ) : (
-                  <p role="alert" className="mb-5 text-sm text-red-700">
-                    Could not load pickup and delivery options. Reload to try
-                    again.
-                  </p>
-                )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {fields
-                    .filter(
-                      (field) =>
-                        form.fulfillment_method === "delivery" ||
-                        [
-                          "shipping_name",
-                          "customer_email",
-                          "customer_phone",
-                        ].includes(field.name),
-                    )
-                    .map((field) => (
-                      <label
-                        key={field.name}
-                        className="block text-sm font-medium"
-                      >
-                        <span className="mb-1 block">{field.label}</span>
-                        <input
-                          name={field.name}
-                          type={field.type || "text"}
-                          autoComplete={field.autoComplete}
-                          value={form[field.name]}
-                          onChange={update}
-                          required={field.required !== false}
-                          maxLength={255}
-                          disabled={submitting}
-                          className="w-full rounded-xl border border-[#E7DCD9] px-3 py-3 outline-offset-2 focus:outline-[#B76473]"
-                        />
-                      </label>
-                    ))}
-                </div>
-                {[
-                  ["delivery_instructions", "Delivery instructions (optional)"],
-                  ["note", "Additional order note (optional)"],
-                ]
-                  .filter(
-                    ([name]) =>
-                      form.fulfillment_method === "delivery" ||
-                      name !== "delivery_instructions",
-                  )
-                  .map(([name, label]) => (
-                    <label
-                      key={name}
-                      className="mt-5 block text-sm font-medium"
-                    >
-                      <span className="mb-1 block">{label}</span>
-                      <textarea
-                        name={name}
-                        value={form[name]}
-                        onChange={update}
-                        maxLength={2000}
-                        disabled={submitting}
-                        rows={3}
-                        className="w-full rounded-xl border border-[#E7DCD9] px-3 py-3"
-                      />
-                    </label>
-                  ))}
-                <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#E7DCD9] bg-[#FFF9F8] p-4 text-sm leading-6">
+                  <details className="mt-4 text-sm">
+                    <summary className="py-2 font-medium text-[#9E4F60]">
+                      Delivery instructions (optional)
+                    </summary>
+                    <textarea
+                      aria-label="Delivery instructions"
+                      name="delivery_instructions"
+                      value={form.delivery_instructions}
+                      onChange={update}
+                      maxLength={2000}
+                      rows={3}
+                      placeholder="Gate code, where to meet you, or other arrival instructions"
+                      className="mt-2 w-full rounded-xl border border-[#E7DCD9] p-3 text-base"
+                    />
+                  </details>
+                </FulfillmentFields>
+              ) : (
+                <p role="alert" className="text-sm text-red-700">
+                  Could not load pickup and delivery options. Please reload to
+                  try again.
+                </p>
+              )}
+              <section
+                aria-labelledby="extras-title"
+                className="border-t border-[#E7DCD9] pt-6"
+              >
+                <h2 id="extras-title" className="font-serif text-2xl">
+                  3. Anything else?
+                </h2>
+                <details className="mt-3 text-sm">
+                  <summary className="py-2 font-medium text-[#9E4F60]">
+                    Add an order note (optional)
+                  </summary>
+                  <textarea
+                    aria-label="Additional order note"
+                    name="note"
+                    value={form.note}
+                    onChange={update}
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Tell us about your occasion or any special requests"
+                    className="mt-2 w-full rounded-xl border border-[#E7DCD9] p-3 text-base"
+                  />
+                </details>
+                <label className="mt-4 flex items-start gap-3 rounded-xl bg-[#FAF7F5] p-3 text-xs leading-5 text-[#796D6A]">
                   <input
                     type="checkbox"
                     name="sms_opt_in"
                     checked={form.sms_opt_in}
                     onChange={update}
-                    disabled={submitting}
                     className="mt-1 h-4 w-4 shrink-0 accent-[#B76473]"
                   />
                   <span>
@@ -503,74 +806,110 @@ export default function Checkout({ onBack }) {
                     Consent is not required to purchase.
                   </span>
                 </label>
-                <button
-                  type="submit"
-                  disabled={
-                    submitting ||
-                    !deliveryOptions ||
-                    Boolean(productionUnavailable) ||
-                    (form.fulfillment_method === "delivery" && !quote)
-                  }
-                  className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:opacity-50"
-                >
-                  {submitting
-                    ? "Saving pending order..."
-                    : "Create pending order (no payment)"}
-                </button>
-              </fieldset>
-            </form>
-            <aside className="rounded-3xl border border-[#E7DCD9] bg-white p-6">
-              <h2 className="font-serif text-2xl">Order summary</h2>
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="mt-4 flex justify-between gap-3 text-sm"
-                >
-                  <span>
-                    {item.product_name} × {item.quantity}
-                  </span>
-                  <span className="whitespace-nowrap">
-                    {money(item.current_subtotal)}
-                  </span>
+              </section>
+            </fieldset>
+            <aside
+              className="min-w-0 rounded-3xl border border-[#E7DCD9] bg-white p-5 lg:sticky lg:top-6"
+              aria-labelledby="summary-title"
+            >
+              <h2 id="summary-title" className="font-serif text-2xl">
+                Review your order
+              </h2>
+              <a
+                href="/#cart"
+                className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
+              >
+                Edit cart
+              </a>
+              <ul className="space-y-4">
+                {items.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex min-w-0 justify-between gap-3 text-sm"
+                  >
+                    <div className="min-w-0 break-words">
+                      <span className="font-medium">
+                        {item.product_name} × {item.quantity}
+                      </span>
+                      {(item.options ?? []).map((option, index) => (
+                        <p key={index} className="mt-1 text-xs text-[#796D6A]">
+                          {option.option_name}: {option.value}
+                        </p>
+                      ))}
+                    </div>
+                    <span className="shrink-0">
+                      {money(item.current_subtotal)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <dl className="mt-5 space-y-3 border-t border-[#E7DCD9] pt-4 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt>Desserts</dt>
+                  <dd>{money(cart.current_total)}</dd>
                 </div>
-              ))}
-              <div className="mt-5 flex justify-between border-t border-[#E7DCD9] pt-4 font-semibold">
-                <span>Estimated subtotal</span>
-                <span>{money(cart?.current_total)}</span>
-              </div>
-              <div className="mt-3 flex justify-between text-sm">
-                <span>
-                  {form.fulfillment_method === "delivery"
-                    ? "Delivery"
-                    : "Pickup"}
-                </span>
-                <span>
-                  {form.fulfillment_method === "delivery"
-                    ? quote
-                      ? money(quote.fee_cents / 100)
-                      : "Calculate fee"
-                    : money(0)}
-                </span>
-              </div>
-              <div className="mt-3 flex justify-between font-semibold">
-                <span>Subtotal + fulfillment</span>
-                <span>
-                  {form.fulfillment_method === "delivery" && !quote
-                    ? "—"
-                    : money(
-                        Number(cart?.current_total ?? 0) +
-                          (form.fulfillment_method === "delivery"
-                            ? quote.fee_cents / 100
-                            : 0),
-                      )}
-                </span>
-              </div>
+                <div className="flex justify-between gap-3">
+                  <dt>{delivery ? "Delivery fee" : "Pickup"}</dt>
+                  <dd>
+                    {delivery
+                      ? quote
+                        ? money(quote.fee_cents / 100)
+                        : "Not calculated"
+                      : "Free"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3 pt-2 text-lg font-semibold">
+                  <dt>Order estimate</dt>
+                  <dd>{estimate === null ? "—" : money(estimate)}</dd>
+                </div>
+              </dl>
+              {form.fulfillment_date &&
+                form.fulfillment_time &&
+                !schedule.dateError &&
+                !schedule.timeError && (
+                  <p className="mt-4 rounded-xl bg-[#FAF7F5] p-3 text-sm leading-6 text-[#796D6A]">
+                    {delivery ? "Delivery" : "Requested pickup"}
+                    <br />
+                    {formatServiceDate(form.fulfillment_date)} at{" "}
+                    {formatServiceTime(form.fulfillment_time)}
+                    <br />
+                    <span className="text-xs">Houston / Katy time</span>
+                  </p>
+                )}
               <p className="mt-4 text-xs leading-5 text-[#796D6A]">
-                Delivery fees are verified by the server before payment. Tax
-                calculation is still pending configuration.
+                The final amount is confirmed when your order is saved. Saving a
+                request does not charge your card or confirm your booking.
+              </p>
+              {missingStep && (
+                <p
+                  id="checkout-next-step"
+                  role="status"
+                  className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-6 text-amber-900"
+                >
+                  {missingStep}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={submitting || quoteBusy || Boolean(missingStep)}
+                aria-describedby={
+                  missingStep ? "checkout-next-step" : undefined
+                }
+                className="mt-4 min-h-12 w-full rounded-full bg-[#B76473] px-5 py-4 text-sm font-semibold text-white hover:bg-[#A65363] disabled:opacity-50"
+              >
+                {submitting
+                  ? "Saving your request..."
+                  : paymentsEnabled
+                    ? "Save & continue to payment"
+                    : "Save order request"}
+              </button>
+              <p className="mt-3 text-center text-xs leading-5 text-[#796D6A]">
+                {paymentsEnabled
+                  ? "Full payment is collected securely on Stripe next."
+                  : "Online payments are currently unavailable. No charge will be made."}
               </p>
             </aside>
-          </div>
+          </form>
         )}
       </div>
     </main>

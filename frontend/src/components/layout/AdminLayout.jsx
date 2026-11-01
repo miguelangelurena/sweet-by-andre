@@ -39,7 +39,7 @@ export default function AdminLayout({ children }) {
             );
           })}
         </nav>
-        <div className="p-4"><a href="#home" className="text-sm text-[#756B69] hover:text-[#B76473]">← View website</a></div>
+        <div className="p-4"><a href="#home" className="text-sm text-[#756B69] hover:text-[#B76473]"> View website</a></div>
       </aside>
       <div className="min-w-0 flex-1">
         <PreviewBanner />

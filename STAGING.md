@@ -88,7 +88,9 @@ URLs de lectura, sin IDs de borrado de los archivos originales: borrar su
 registro de prueba no elimina la imagen original en Cloudinary. El backend de
 staging rechaza el borrado de archivos fuera de su carpeta de pruebas.
 
-El cálculo de millas requiere `GOOGLE_ROUTES_API_KEY` y activar delivery desde
+El modo de tarifas fijas por ZIP no requiere Google ni tarjeta. Las tarifas se
+configuran y activan desde administración; ver [DELIVERY_SETUP.md](DELIVERY_SETUP.md).
+El cálculo alternativo de millas requiere `GOOGLE_ROUTES_API_KEY` y activar delivery desde
 administración. Si falta esa configuración, pickup sigue disponible. Ningún
 script de esta preparación crea una cuenta de Google ni habilita facturación.
 
