@@ -181,7 +181,10 @@ export default function Cart({ onContinueShopping, onCheckout }) {
             <section aria-label="Cart items" className="space-y-4">
               {items.map((item) => {
                 const busy = anyBusy;
-                const itemStock = item.inventory_mode === "made_to_order" ? Number.MAX_SAFE_INTEGER : Number(item.variant_stock);
+                const itemStock =
+                  item.inventory_mode === "made_to_order"
+                    ? Number.MAX_SAFE_INTEGER
+                    : Number(item.variant_stock);
                 const unavailable = !item.is_available;
                 return (
                   <article
@@ -308,14 +311,20 @@ export default function Cart({ onContinueShopping, onCheckout }) {
               )}
               <button
                 type="button"
-                disabled={anyBusy || cart.has_price_changes || cart.has_unavailable_items || !onCheckout}
+                disabled={
+                  anyBusy ||
+                  cart.has_price_changes ||
+                  cart.has_unavailable_items ||
+                  !onCheckout
+                }
                 onClick={onCheckout}
                 className="mt-7 w-full rounded-full bg-[#B76473] px-6 py-4 font-semibold text-white hover:bg-[#A65363] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Continue to delivery details
               </button>
               <p className="mt-3 text-xs leading-5 text-[#796D6A]">
-                Online payment is not enabled yet. You can prepare a pending order.
+                Online payment is not enabled yet. You can prepare a pending
+                order.
               </p>
             </aside>
           </div>

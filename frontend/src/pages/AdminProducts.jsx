@@ -107,11 +107,7 @@ export default function AdminProducts() {
   }
 
   useEffect(() => {
-    if (
-      !showForm &&
-      !editingProduct &&
-      !managingImagesProduct
-    ) {
+    if (!showForm && !editingProduct && !managingImagesProduct) {
       return;
     }
 
@@ -341,8 +337,14 @@ export default function AdminProducts() {
       </div>
 
       {loading ? (
-        <div role="status" aria-label="Loading products" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({length:6},(_,i)=><div key={i} className="sba-skeleton h-48 rounded-2xl" />)}
+        <div
+          role="status"
+          aria-label="Loading products"
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="sba-skeleton h-48 rounded-2xl" />
+          ))}
         </div>
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-[#E7DCD9] bg-white p-8 text-center text-sm text-[#756B69]">
@@ -375,7 +377,9 @@ export default function AdminProducts() {
                 <div className="my-4 flex items-center justify-between border-y border-[#E7DCD9] py-3 text-sm">
                   <span className="text-[#756B69]">Sales mode</span>
                   <span className="font-semibold text-[#282323]">
-                    {product.inventory_mode === "made_to_order" ? "Made to order" : "Stock by variant"}
+                    {product.inventory_mode === "made_to_order"
+                      ? "Made to order"
+                      : "Stock by variant"}
                   </span>
                 </div>
                 {renderActions(product, true)}
@@ -417,7 +421,9 @@ export default function AdminProducts() {
                       ${Number(product.price).toFixed(2)}
                     </td>
                     <td className="px-5 py-4 text-sm text-[#756B69]">
-                      {product.inventory_mode === "made_to_order" ? "Made to order" : "Stock by variant"}
+                      {product.inventory_mode === "made_to_order"
+                        ? "Made to order"
+                        : "Stock by variant"}
                     </td>
                     <td className="px-5 py-4">{renderStatus(product)}</td>
                     <td className="px-5 py-4">{renderActions(product)}</td>

@@ -38,7 +38,9 @@ export default function Catalog() {
     return product.is_available && matchesCategory;
   });
 
-  useEffect(() => { setVisibleCount(9); }, [selectedCategory]);
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [selectedCategory]);
 
   return (
     <main className="min-h-screen bg-[#FAF7F5] px-6 py-16">
@@ -58,7 +60,10 @@ export default function Catalog() {
         </header>
 
         {loading && (
-          <ProductGridSkeleton count={6} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3" />
+          <ProductGridSkeleton
+            count={6}
+            className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
+          />
         )}
 
         {error && (
@@ -111,12 +116,16 @@ export default function Catalog() {
             )}
             {visibleProducts.length > visibleCount && (
               <div className="mt-10 text-center">
-                <button type="button" onClick={() => setVisibleCount((count) => count + 9)}
-                  className="rounded-full border border-[#B76473] bg-white px-8 py-3 font-semibold text-[#97495A] transition-colors hover:bg-[#FAEDEE]">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((count) => count + 9)}
+                  className="rounded-full border border-[#B76473] bg-white px-8 py-3 font-semibold text-[#97495A] transition-colors hover:bg-[#FAEDEE]"
+                >
                   Show more desserts
                 </button>
                 <p className="mt-3 text-sm text-[#796D6A]" aria-live="polite">
-                  Showing {Math.min(visibleCount, visibleProducts.length)} of {visibleProducts.length} desserts
+                  Showing {Math.min(visibleCount, visibleProducts.length)} of{" "}
+                  {visibleProducts.length} desserts
                 </p>
               </div>
             )}
