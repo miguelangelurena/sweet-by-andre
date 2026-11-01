@@ -61,6 +61,12 @@ Staging database ready. Catalog and administrator configured; existing staging e
 Server listening on port: ...
 ```
 
+El **Docker Command** debe ser `node scripts/startStaging.js`. Este script
+inicializa la base y solo arranca el servidor si la inicialización termina bien.
+Si tu servicio conserva el comando anterior con `sh -c`, sincroniza el Blueprint
+después de subir los cambios. También puedes actualizar **Settings → Docker
+Command** al valor indicado y volver a publicar.
+
 Cuando el servicio esté disponible, abre su URL `https://<nombre>.onrender.com`.
 Comprueba:
 

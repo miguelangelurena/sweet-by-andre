@@ -2,6 +2,7 @@ import "dotenv/config";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { createServer } from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { Pool } from "pg";
 import { fileURLToPath } from "node:url";
@@ -102,25 +103,29 @@ test(
         ).rows[0].count,
         0,
       );
-      // Assign the actual ephemeral port's origin before loading the application.
+      const failedStart = spawnSync(process.execPath, ["scripts/startStaging.js"], {
+        cwd,
+        env: { ...env, SESSION_SECRET: "" },
+        encoding: "utf8",
+        timeout: 10000,
+      });
+      assert.equal(failedStart.status, 1);
+      assert.match(failedStart.stderr, /SESSION_SECRET/);
+      assert.ok(!failedStart.stdout.includes("Server listening"));
+
+      // Run the same command used by Render, with its HTTPS public origin.
+      const probe = createServer();
+      await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+      const availablePort = probe.address().port;
+      await new Promise((resolve) => probe.close(resolve));
       app = spawn(
         process.execPath,
-        [
-          "--input-type=module",
-          "-e",
-          `
-      import net from 'node:net';
-      const probe=net.createServer();
-      probe.listen(0,'127.0.0.1',async()=>{
-        const port=probe.address().port;
-        await new Promise(resolve=>probe.close(resolve));
-        process.env.FRONTEND_URL='http://127.0.0.1:'+port;
-        const {default:app}=await import('./src/app.js');
-        app.listen(port,'127.0.0.1',()=>console.log('READY:'+port));
-      });
-    `,
-        ],
-        { cwd, env, stdio: ["ignore", "pipe", "pipe"] },
+        ["scripts/startStaging.js"],
+        {
+          cwd,
+          env: { ...env, PORT: String(availablePort) },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
       );
       const port = await new Promise((resolve, reject) => {
         let output = "",
@@ -134,7 +139,7 @@ test(
         });
         app.stdout.on("data", (chunk) => {
           output += String(chunk);
-          const match = output.match(/READY:(\d+)/);
+          const match = output.match(/Server listening on port: (\d+)/);
           if (match) {
             clearTimeout(timer);
             resolve(Number(match[1]));
@@ -151,7 +156,7 @@ test(
           ...options,
           headers: {
             "Content-Type": "application/json",
-            Origin: origin,
+            Origin: env.RENDER_EXTERNAL_URL,
             "X-Forwarded-Proto": "https",
             ...(cookie ? { Cookie: cookie } : {}),
             ...options.headers,

@@ -8,7 +8,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     # Run on startup because Free services do not support pre-deploy commands.
-    dockerCommand: sh -c 'node scripts/initializeStaging.js && exec node server.js'
+    dockerCommand: node scripts/startStaging.js
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
