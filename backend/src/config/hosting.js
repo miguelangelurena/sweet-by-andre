@@ -1,6 +1,7 @@
 export function frontendOrigins(env = process.env) {
   const configured =
     env.FRONTEND_URL ||
+    env.RENDER_EXTERNAL_URL ||
     (env.RAILWAY_PUBLIC_DOMAIN
       ? `https://${env.RAILWAY_PUBLIC_DOMAIN}`
       : "http://localhost:5173");
@@ -57,7 +58,7 @@ export function validateStagingRuntime(env = process.env) {
     })
   )
     throw new Error(
-      "Set the staging HTTPS FRONTEND_URL or generate a Railway public domain",
+      "Set an HTTPS FRONTEND_URL or use the public URL provided by Render or Railway",
     );
   stripeSecret(env);
 }

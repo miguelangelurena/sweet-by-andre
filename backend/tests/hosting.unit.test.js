@@ -7,7 +7,11 @@ import {
   validateStagingRuntime,
 } from "../src/config/hosting.js";
 
-test("hosting uses a single Railway origin while preserving explicit local origins", () => {
+test("hosting recognizes Render and Railway while preserving explicit origins", () => {
+  assert.deepEqual(
+    frontendOrigins({ RENDER_EXTERNAL_URL: "https://preview.onrender.com" }),
+    ["https://preview.onrender.com"],
+  );
   assert.deepEqual(
     frontendOrigins({ RAILWAY_PUBLIC_DOMAIN: "preview.up.railway.app" }),
     ["https://preview.up.railway.app"],
@@ -15,6 +19,8 @@ test("hosting uses a single Railway origin while preserving explicit local origi
   assert.deepEqual(
     frontendOrigins({
       FRONTEND_URL: "http://localhost:5173, https://preview.example",
+      RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+      RAILWAY_PUBLIC_DOMAIN: "preview.up.railway.app",
     }),
     ["http://localhost:5173", "https://preview.example"],
   );
@@ -72,6 +78,13 @@ test("staging setup fails early for missing secrets or an unusable HTTPS origin"
     RAILWAY_PUBLIC_DOMAIN: "preview.up.railway.app",
   };
   assert.doesNotThrow(() => validateStagingRuntime(env));
+  assert.doesNotThrow(() =>
+    validateStagingRuntime({
+      ...env,
+      RAILWAY_PUBLIC_DOMAIN: "",
+      RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+    }),
+  );
   assert.throws(
     () => validateStagingRuntime({ ...env, SESSION_SECRET: "" }),
     /SESSION_SECRET/,

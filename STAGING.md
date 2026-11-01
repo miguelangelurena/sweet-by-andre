@@ -1,5 +1,9 @@
 # Entorno de pruebas para Sweet by Andre
 
+Para publicar en Render, sigue [la guía de Render](RENDER.md). El archivo
+`render.yaml` configura la aplicación y PostgreSQL juntos. La alternativa
+Railway se conserva documentada a continuación.
+
 Este despliegue sirve React y Express desde una sola dirección HTTPS, con
 PostgreSQL independiente. El panel de Andrea será `https://<dominio>/#admin/login`.
 La configuración usa un contenedor Node 24 y `railway.json` desde la raíz del
