@@ -144,7 +144,7 @@ export default function Home() {
       <section
         id="menu"
         aria-labelledby="menu-title"
-        className="px-4 py-10 sm:px-6 sm:py-24"
+        className="px-6 py-20 sm:py-24"
       >
         <div className="mx-auto max-w-[1180px]">
           <div className="mx-auto max-w-xl text-center">
@@ -153,25 +153,25 @@ export default function Home() {
             </span>
             <h2
               id="menu-title"
-              className="mt-3 font-serif text-3xl leading-tight text-[#49332F] sm:mt-5 sm:text-5xl"
+              className="mt-5 font-serif text-4xl leading-tight text-[#49332F] sm:text-5xl"
             >
               Little joys.{" "}
               <span className="italic text-[#BB6C76]">Sweet memories.</span>
             </h2>
-            <p className="mt-3 text-sm leading-6 text-[#786962] sm:mt-5 sm:text-base sm:leading-7">
+            <p className="mt-5 leading-7 text-[#786962]">
               From a traditional Venezuelan quesillo to cheesecakes and other
               sweet creations, there’s a little happiness waiting for your
               table.
             </p>
           </div>
-          <div className="mt-6 grid gap-3 sm:mt-12 sm:gap-7 md:grid-cols-3">
+          <div className="mt-12 grid gap-7 md:grid-cols-3">
             {categories.map((category) => (
               <a
                 key={category.title}
                 href="#catalog"
-                className="group grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 overflow-hidden rounded-2xl border border-[#EADBD4] bg-[#FFFDFA] p-3 transition-shadow hover:shadow-lg hover:shadow-[#6B473C]/5 sm:block sm:rounded-t-[3.5rem] sm:rounded-b-3xl sm:p-0"
+                className="group overflow-hidden rounded-t-[3.5rem] rounded-b-3xl border border-[#EADBD4] bg-[#FFFDFA] transition-shadow hover:shadow-lg hover:shadow-[#6B473C]/5"
               >
-                <div className="aspect-square overflow-hidden rounded-xl bg-[#EEE0D9] sm:aspect-[4/3] sm:rounded-none">
+                <div className="aspect-[4/3] overflow-hidden bg-[#EEE0D9]">
                   <img
                     src={category.image}
                     alt={category.title}
@@ -179,14 +179,14 @@ export default function Home() {
                     className="h-full w-full object-cover transition duration-500 motion-safe:group-hover:scale-105"
                   />
                 </div>
-                <div className="min-w-0 sm:p-7 sm:text-center">
-                  <h3 className="font-serif text-lg text-[#49332F] sm:text-2xl">
+                <div className="p-7 text-center">
+                  <h3 className="font-serif text-2xl text-[#49332F]">
                     {category.title}
                   </h3>
-                  <p className="mt-1 text-[13px] leading-5 text-[#786962] sm:mt-3 sm:text-sm sm:leading-6">
+                  <p className="mt-3 text-sm leading-6 text-[#786962]">
                     {category.description}
                   </p>
-                  <span className="mt-2 inline-block text-xs font-semibold text-[#9F5362] sm:mt-5 sm:text-sm">
+                  <span className="mt-5 inline-block text-sm font-semibold text-[#9F5362]">
                     Explore the menu <span aria-hidden="true">→</span>
                   </span>
                 </div>
