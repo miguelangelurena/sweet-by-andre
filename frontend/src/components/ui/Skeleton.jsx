@@ -4,14 +4,14 @@ export function Skeleton({ className = "" }) {
 
 export function ProductCardSkeleton() {
   return (
-    <div aria-hidden="true" className="overflow-hidden rounded-3xl border border-[#E7DCD9] bg-white">
-      <Skeleton className="aspect-[4/3] w-full rounded-none" />
-      <div className="space-y-3 p-5">
+    <div aria-hidden="true" className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white p-3 sm:block sm:rounded-3xl sm:p-0">
+      <Skeleton className="aspect-square w-full sm:aspect-[4/3] sm:rounded-none" />
+      <div className="min-w-0 space-y-2 sm:space-y-3 sm:p-5">
         <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-7 w-3/4" />
+        <Skeleton className="h-5 w-3/4 sm:h-7" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-2/3" />
-        <Skeleton className="mt-5 h-6 w-24" />
+        <Skeleton className="h-5 w-24 sm:mt-5 sm:h-6" />
       </div>
     </div>
   );
