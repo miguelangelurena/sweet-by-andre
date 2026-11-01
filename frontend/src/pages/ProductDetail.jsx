@@ -429,7 +429,7 @@ export default function ProductDetail({ productId }) {
                     href="#cart"
                     className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
                   >
-                    View cart &amp; continue →
+                    View cart &amp; continue
                   </a>
                 </div>
               )}

@@ -248,9 +248,7 @@ export default function Checkout({ onBack }) {
     : delivery && !deliveryOptions.delivery_available
       ? "Delivery is currently unavailable. Please choose pickup."
       : belowMinimum
-        ? delivery && deliveryOptions.minimum_scope !== "all"
-          ? "Add more desserts to meet the minimum purchase, or choose pickup."
-          : "Add more desserts to meet the minimum purchase."
+        ? "Add more desserts to meet the minimum purchase, or choose pickup."
         : !form.fulfillment_date
           ? "Choose your pickup or delivery date."
           : schedule.dateError ||
@@ -481,7 +479,7 @@ export default function Checkout({ onBack }) {
           onClick={onBack}
           className="min-h-11 text-sm font-semibold text-[#B76473] hover:underline"
         >
-          ← Back to cart
+          Back to cart
         </button>
         <ol
           aria-label="Checkout progress"
@@ -504,7 +502,7 @@ export default function Checkout({ onBack }) {
           </li>
         </ol>
         <h1 className="mt-5 font-serif text-3xl sm:text-5xl">
-          {order ? "Your order request" : "Checkout"}
+          {order ? "Your order request" : "Make it a sweet occasion"}
         </h1>
         <p className="mt-3 mb-6 max-w-xl text-sm leading-6 text-[#796D6A]">
           {order

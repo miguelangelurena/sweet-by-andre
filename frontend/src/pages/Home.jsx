@@ -72,7 +72,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-5">
             <a href="#catalog" className="brand-button w-full sm:w-auto">
-              Explore our menu <span aria-hidden="true">→</span>
+              Explore our menu
             </a>
             <a
               href="#about"
@@ -187,7 +187,7 @@ export default function Home() {
                     {category.description}
                   </p>
                   <span className="mt-5 inline-block text-sm font-semibold text-[#9F5362]">
-                    Explore the menu <span aria-hidden="true">→</span>
+                    Explore the menu
                   </span>
                 </div>
               </a>
