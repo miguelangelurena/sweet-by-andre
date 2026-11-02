@@ -43,18 +43,18 @@ export default function Catalog() {
   }, [selectedCategory]);
 
   return (
-    <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 sm:py-16">
+    <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-5 sm:mb-12 sm:text-center">
+        <header className="mb-5 sm:mb-7 sm:text-center">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#B76473] sm:text-xs sm:tracking-[0.3em]">
             Handcrafted with love
           </span>
 
-          <h1 className="mt-2 font-serif text-3xl text-[#282323] sm:mt-4 sm:text-5xl">
+          <h1 className="mt-2 font-serif text-3xl text-[#282323] sm:mt-3 sm:text-4xl">
             Explore Our Menu
           </h1>
 
-          <p className="mt-2 max-w-xl text-sm leading-6 text-[#796D6A] sm:mx-auto sm:mt-5 sm:text-base sm:leading-7">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-[#796D6A] sm:mx-auto sm:mt-3 sm:text-base sm:leading-7">
             Discover our handcrafted desserts, made for your sweetest moments.
           </p>
         </header>
@@ -62,7 +62,7 @@ export default function Catalog() {
         {loading && (
           <ProductGridSkeleton
             count={6}
-            className="grid gap-3 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3"
+            className="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4"
           />
         )}
 
@@ -74,12 +74,16 @@ export default function Catalog() {
 
         {!loading && !error && (
           <>
-            <div role="group" aria-label="Filter desserts by category" className="-mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mb-10 sm:flex-wrap sm:justify-center sm:gap-3 sm:overflow-visible sm:px-0">
+            <div
+              role="group"
+              aria-label="Filter desserts by category"
+              className="-mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:mb-6 sm:flex-wrap sm:justify-center sm:gap-3 sm:overflow-visible sm:px-0"
+            >
               <button
                 type="button"
                 onClick={() => setSelectedCategory("all")}
                 aria-pressed={selectedCategory === "all"}
-                className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-6 sm:py-3 ${
+                className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-5 ${
                   selectedCategory === "all"
                     ? "border-[#B76473] bg-[#B76473] text-white"
                     : "border border-[#E7DCD9] bg-white text-[#796D6A] hover:border-[#B76473]"
@@ -94,7 +98,7 @@ export default function Catalog() {
                   type="button"
                   onClick={() => setSelectedCategory(category.id)}
                   aria-pressed={selectedCategory === category.id}
-                  className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-6 sm:py-3 ${
+                  className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-5 ${
                     selectedCategory === category.id
                       ? "border-[#B76473] bg-[#B76473] text-white"
                       : "border border-[#E7DCD9] bg-white text-[#796D6A] hover:border-[#B76473]"
@@ -110,7 +114,7 @@ export default function Catalog() {
                 No desserts available in this collection yet.
               </p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                 {visibleProducts.slice(0, visibleCount).map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

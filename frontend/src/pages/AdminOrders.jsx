@@ -1,4 +1,5 @@
 import MinimalSelect from "../components/ui/MinimalSelect";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../services/api";
 
@@ -185,11 +186,13 @@ export default function AdminOrders() {
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState("");
   const [statusNotice, setStatusNotice] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
   const [refundReview, setRefundReview] = useState(null);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState("");
 
   const requestsVersion = useRef(0);
+  const statusInFlight = useRef(false);
   const moreAbort = useRef(null);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -297,7 +300,7 @@ export default function AdminOrders() {
       });
 
     return () => controller.abort();
-  }, [selectedId]);
+  }, [selectedId, refreshVersion]);
 
   useEffect(() => {
     setRefundReview(null);
@@ -328,6 +331,7 @@ export default function AdminOrders() {
     closeButtonRef.current?.focus();
 
     function handleKeys(event) {
+      if (document.querySelector("dialog[open]")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         setSelectedId(null);
@@ -363,6 +367,7 @@ export default function AdminOrders() {
     setShowAdditionalInfo(false);
     setStatusError("");
     setStatusNotice("");
+    setConfirmation(null);
     setSelectedId(id);
   }
 
@@ -372,17 +377,15 @@ export default function AdminOrders() {
       ? NEXT_FULFILLMENT_ACTION[order.order_status]
       : null;
 
-  async function advanceStatus() {
-    if (!order || !nextAction || statusBusy) return;
-    if (
-      nextAction.target === "completed" &&
-      !window.confirm(
-        "Confirm that this order has been completed and handed over to the customer?",
-      )
-    )
+  async function advanceStatus({ completionConfirmed = false } = {}) {
+    if (!order || !nextAction || statusBusy || statusInFlight.current) return;
+    if (nextAction.target === "completed" && !completionConfirmed) {
+      setConfirmation("complete");
       return;
+    }
 
     const orderId = order.id;
+    statusInFlight.current = true;
     setStatusBusy(true);
     setStatusError("");
     setStatusNotice("");
@@ -417,27 +420,33 @@ export default function AdminOrders() {
         ),
       );
       setStatusNotice(`Order moved to ${statusLabel(updated.order_status)}.`);
+      setConfirmation(null);
     } catch (err) {
+      setConfirmation(null);
       setStatusError(err.message || "Could not update order status.");
-      // Keep the dialog visible for investigation; refresh the list so a
-      // concurrent update in another admin tab is not hidden indefinitely.
+      // Keep order details visible and refresh their state after a conflict.
       setRefreshVersion((version) => version + 1);
     } finally {
+      statusInFlight.current = false;
       setStatusBusy(false);
     }
   }
 
-  async function cancelUnpaid() {
+  async function cancelUnpaid({ cancellationConfirmed = false } = {}) {
     if (
       !order ||
       statusBusy ||
+      statusInFlight.current ||
       order.payment_status !== "pending" ||
       order.order_status !== "pending"
     )
       return;
-    if (!window.confirm("Cancel this unpaid order? This cannot be undone."))
+    if (!cancellationConfirmed) {
+      setConfirmation("cancel");
       return;
+    }
     const orderId = order.id;
+    statusInFlight.current = true;
     setStatusBusy(true);
     setStatusError("");
     setStatusNotice("");
@@ -465,10 +474,13 @@ export default function AdminOrders() {
         ),
       );
       setStatusNotice("Unpaid order cancelled.");
+      setConfirmation(null);
     } catch (err) {
+      setConfirmation(null);
       setStatusError(err.message || "Could not cancel order.");
       setRefreshVersion((version) => version + 1);
     } finally {
+      statusInFlight.current = false;
       setStatusBusy(false);
     }
   }
@@ -1023,6 +1035,35 @@ export default function AdminOrders() {
             </div>
           </section>
         </div>
+      )}
+      {confirmation && order && (
+        <ConfirmDialog
+          title={confirmation === "complete" ? "Complete this order?" : "Cancel this request?"}
+          description={
+            confirmation === "complete"
+              ? order.fulfillment_method === "pickup"
+                ? "Mark this pickup as completed once the customer has collected their order."
+                : "Mark this order as completed once the customer has received it."
+              : "This unpaid request will be marked as cancelled. It will remain in your order history."
+          }
+          confirmLabel={confirmation === "complete" ? "Complete order" : "Cancel request"}
+          cancelLabel={confirmation === "complete" ? "Keep as ready" : "Keep request"}
+          destructive={confirmation === "cancel"}
+          busy={statusBusy}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={() =>
+            confirmation === "complete"
+              ? advanceStatus({ completionConfirmed: true })
+              : cancelUnpaid({ cancellationConfirmed: true })
+          }
+        >
+          <div className="mt-4 rounded-2xl bg-[#FAF7F5] p-4 text-sm">
+            <p className="font-semibold">Order #{order.id.slice(0, 8)}</p>
+            <p className="mt-1 break-words text-[#796D6A]">
+              {order.shipping_name || "Customer order"} · {money(order.total)}
+            </p>
+          </div>
+        </ConfirmDialog>
       )}
     </main>
   );

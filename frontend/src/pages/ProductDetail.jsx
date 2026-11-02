@@ -42,6 +42,7 @@ export default function ProductDetail({ productId }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addingToCart, setAddingToCart] = useState(false);
@@ -60,6 +61,7 @@ export default function ProductDetail({ productId }) {
       setSelectedImage(0);
       setQuantity(1);
       setNotes("");
+      setDescriptionExpanded(false);
       setCartMessage("");
       setCartError("");
 
@@ -248,19 +250,30 @@ export default function ProductDetail({ productId }) {
   const subtotal = selectedVariant
     ? Number(selectedVariant.price) * quantity
     : 0;
+  const description = product.description ?? "";
+  const hasLongDescription = description.length > 170;
+  const descriptionPreview = hasLongDescription
+    ? `${description
+        .slice(0, 170)
+        .replace(/\s+\S*$/, "")
+        .trimEnd()}…`
+    : description;
 
   return (
-    <main className="min-h-screen bg-[#FAF7F5] px-4 py-10 sm:px-6 lg:py-16">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 lg:py-8">
+      <div className="mx-auto max-w-5xl">
         <a
           href="#catalog"
-          className="mb-8 inline-block text-sm font-medium text-[#B76473] hover:underline"
+          className="mb-4 inline-flex min-h-11 items-center text-sm font-medium text-[#B76473] hover:underline"
         >
           Back to our menu
         </a>
 
-        <div className="grid gap-12 lg:grid-cols-2">
-          <section>
+        <div className="grid items-start gap-7 lg:grid-cols-2 lg:gap-10">
+          <section
+            aria-label="Product photos"
+            className="mx-auto w-full max-w-md lg:sticky lg:top-6"
+          >
             <div className="aspect-square overflow-hidden rounded-3xl bg-[#F1E5E2]">
               {images.length > 0 ? (
                 <img
@@ -276,7 +289,7 @@ export default function ProductDetail({ productId }) {
             </div>
 
             {images.length > 1 && (
-              <div className="mt-4 grid grid-cols-5 gap-3">
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {images.map((image, index) => (
                   <button
                     key={image.id}
@@ -284,7 +297,7 @@ export default function ProductDetail({ productId }) {
                     onClick={() => setSelectedImage(index)}
                     aria-label={`View product image ${index + 1}`}
                     aria-pressed={selectedImage === index}
-                    className={`aspect-square overflow-hidden rounded-xl border-2 ${
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 ${
                       selectedImage === index
                         ? "border-[#B76473]"
                         : "border-transparent"
@@ -301,24 +314,38 @@ export default function ProductDetail({ productId }) {
             )}
           </section>
 
-          <section className="lg:py-6">
+          <section aria-label="Customize your dessert" className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#B76473]">
               {product.category_name}
             </p>
-            <h1 className="mt-4 font-serif text-4xl text-[#282323] sm:text-5xl">
+            <h1 className="mt-2 break-words font-serif text-3xl text-[#282323] sm:text-4xl">
               {product.name}
             </h1>
-            <p className="mt-5 text-3xl font-semibold text-[#282323]">
+            <p className="mt-3 text-2xl font-semibold text-[#282323]">
               {selectedVariant
                 ? formatPrice(selectedVariant.price)
                 : "Currently unavailable"}
             </p>
-            <p className="mt-7 whitespace-pre-line leading-8 text-[#796D6A]">
-              {product.description}
+            <p
+              id="product-description"
+              className="mt-3 whitespace-pre-line text-sm leading-6 text-[#796D6A]"
+            >
+              {descriptionExpanded ? description : descriptionPreview}
             </p>
+            {hasLongDescription && (
+              <button
+                type="button"
+                aria-expanded={descriptionExpanded}
+                aria-controls="product-description"
+                onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+                className="inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
+              >
+                {descriptionExpanded ? "Show less" : "Read full description"}
+              </button>
+            )}
 
             {optionGroups.length > 0 && (
-              <div className="mt-8 space-y-5 border-t border-[#E7DCD9] pt-7">
+              <div className="mt-5 grid gap-4 border-t border-[#E7DCD9] pt-5 sm:grid-cols-2">
                 {optionGroups.map((group) => (
                   <div key={group.id}>
                     <p className="mb-2 text-sm font-semibold text-[#282323]">
@@ -339,7 +366,7 @@ export default function ProductDetail({ productId }) {
               </div>
             )}
 
-            <div className="mt-8 border-t border-[#E7DCD9] pt-7">
+            <div className="mt-5 border-t border-[#E7DCD9] pt-4">
               <p
                 className={`text-sm font-semibold ${inStock ? "text-green-700" : "text-[#A29A97]"}`}
               >
@@ -349,66 +376,70 @@ export default function ProductDetail({ productId }) {
                     : `Available (${maxQuantity} in stock)`
                   : "Currently unavailable"}
               </p>
-              <div className="mt-7">
-                <label className="text-sm font-semibold text-[#282323]">
-                  Quantity
-                </label>
-                <div className="mt-3 flex items-center gap-5">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    disabled={!inStock || quantity <= 1}
-                    aria-label="Decrease quantity"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] bg-white disabled:opacity-40"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-6 text-center text-lg font-semibold">
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setQuantity((q) => Math.min(maxQuantity, q + 1))
-                    }
-                    disabled={!inStock || quantity >= maxQuantity}
-                    aria-label="Increase quantity"
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] bg-white disabled:opacity-40"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <label
-                  htmlFor="special-instructions"
-                  className="text-sm font-semibold text-[#282323]"
-                >
+              <details className="mt-2 text-sm">
+                <summary className="min-h-11 content-center font-semibold text-[#796D6A]">
                   Special instructions (optional)
+                </summary>
+                <label htmlFor="special-instructions" className="sr-only">
+                  Special instructions
                 </label>
                 <textarea
                   id="special-instructions"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   maxLength={500}
-                  rows={4}
+                  rows={3}
                   placeholder="Any special requests for your dessert?"
-                  className="mt-3 w-full resize-y rounded-2xl border border-[#E7DCD9] bg-white p-4 text-sm outline-none focus:border-[#B76473]"
+                  className="mt-2 w-full resize-y rounded-2xl border border-[#E7DCD9] bg-white p-3 text-base focus:border-[#B76473]"
                 />
-              </div>
+              </details>
 
-              <div className="mt-8 flex items-center justify-between border-t border-[#E7DCD9] pt-6">
-                <span className="text-sm text-[#796D6A]">Subtotal</span>
-                <span className="text-2xl font-semibold text-[#282323]">
-                  {selectedVariant ? formatPrice(subtotal) : "—"}
-                </span>
+              <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[#282323]">
+                    Quantity
+                  </p>
+                  <div className="mt-2 flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={!inStock || quantity <= 1}
+                      aria-label="Decrease quantity"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] bg-white disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-6 text-center text-lg font-semibold">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setQuantity((q) => Math.min(maxQuantity, q + 1))
+                      }
+                      disabled={!inStock || quantity >= maxQuantity}
+                      aria-label="Increase quantity"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E7DCD9] bg-white disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-[#796D6A]">Subtotal</span>
+                  <span
+                    aria-live="polite"
+                    className="mt-1 block text-xl font-semibold text-[#282323]"
+                  >
+                    {selectedVariant ? formatPrice(subtotal) : "—"}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={!inStock || addingToCart}
-                className="mt-7 w-full rounded-full bg-[#B76473] px-8 py-4 font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 min-h-12 w-full rounded-full bg-[#B76473] px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {!inStock
                   ? "Out of Stock"

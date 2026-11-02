@@ -5,7 +5,7 @@ export function Skeleton({ className = "" }) {
 export function ProductCardSkeleton() {
   return (
     <div aria-hidden="true" className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white p-3 sm:block sm:rounded-3xl sm:p-0">
-      <Skeleton className="aspect-square w-full sm:aspect-[4/3] sm:rounded-none" />
+      <Skeleton className="aspect-square w-full sm:aspect-[3/2] sm:rounded-none" />
       <div className="min-w-0 space-y-2 sm:space-y-3 sm:p-5">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-5 w-3/4 sm:h-7" />
@@ -30,12 +30,12 @@ export function ProductGridSkeleton({ count = 6, className = "" }) {
 
 export function ProductDetailSkeleton() {
   return (
-    <main role="status" aria-label="Loading product details" aria-busy="true" className="min-h-screen bg-[#FAF7F5] px-4 py-10 sm:px-6 lg:py-16">
+    <main role="status" aria-label="Loading product details" aria-busy="true" className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 lg:py-8">
       <span className="sr-only">Loading product details...</span>
-      <div className="mx-auto max-w-7xl">
-        <Skeleton className="mb-8 h-5 w-36" />
-        <div className="grid gap-12 lg:grid-cols-2">
-          <Skeleton className="aspect-square w-full rounded-3xl" />
+      <div className="mx-auto max-w-5xl">
+        <Skeleton className="mb-6 h-5 w-36" />
+        <div className="grid gap-7 lg:grid-cols-2 lg:gap-10">
+          <Skeleton className="mx-auto aspect-square w-full max-w-md rounded-3xl" />
           <div className="space-y-6 py-3">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-12 w-4/5" />
