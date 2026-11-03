@@ -72,6 +72,9 @@ test(
       created = true;
       setup();
       staging = new Pool({ connectionString: url.href });
+      assert.equal((await staging.query(`SELECT COUNT(*)::int AS count FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='refund_requests'
+        AND column_name IN ('requested_by','reason','resources_returned_at')`)).rows[0].count, 3);
       assert.equal(
         (await staging.query("SELECT COUNT(*)::int AS count FROM users"))
           .rows[0].count,

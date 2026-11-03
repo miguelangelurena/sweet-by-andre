@@ -2,6 +2,7 @@ import express from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
+import { rejectPaidOrder } from "../controllers/admin-refund.controller.js";
 import {
     getAdminOrders,
     getAdminOrderById,
@@ -25,6 +26,7 @@ router.patch("/orders/:id/status", requireAuth, requireAdmin, requireSessionCsrf
 
 
 router.get("/orders/:id/refund-review", requireAuth, requireAdmin, reviewAdminOrderRefund);
+router.post("/orders/:id/reject", requireAuth, requireAdmin, requireSessionCsrf, rejectPaidOrder);
 
 router.patch("/orders/:id/cancel-unpaid", requireAuth, requireAdmin, requireSessionCsrf, cancelUnpaidAdminOrder);
 

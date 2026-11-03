@@ -45,7 +45,7 @@ export async function deliveryCounts(db, from, to, excludeOrder = null) {
       AND o.service_date BETWEEN $1::date AND $2::date
       AND ($3::uuid IS NULL OR o.id <> $3::uuid)
       AND o.order_status <> 'cancelled'
-      AND (o.payment_status = 'paid' OR (o.delivery_hold_until > NOW()
+      AND (o.payment_status IN ('paid','refund_pending') OR (o.delivery_hold_until > NOW()
         AND NOT EXISTS (SELECT 1 FROM checkout_attempts a WHERE a.order_id = o.id AND a.status = 'expired'))
         OR EXISTS (SELECT 1 FROM checkout_attempts a WHERE a.order_id = o.id AND a.status IN ('creating','open')))
     GROUP BY o.service_date`,

@@ -105,6 +105,7 @@ export async function initializeStaging(client, { email, password }) {
     // Additive, repeatable migrations keep existing catalog edits and accounts.
     await client.query(withoutTransaction(await loadSql("delivery.sql")));
     await client.query(withoutTransaction(await loadSql("production.sql")));
+    await client.query(withoutTransaction(await loadSql("refunds.sql")));
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

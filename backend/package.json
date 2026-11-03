@@ -12,6 +12,7 @@
     "db:delivery": "node scripts/installDelivery.js",
     "delivery:check": "node scripts/checkDelivery.js",
     "db:production": "node scripts/installProduction.js",
+    "db:refunds": "node scripts/installRefunds.js",
     "db:staging": "node scripts/initializeStaging.js",
     "test:staging": "node --test tests/hosting.unit.test.js tests/staging-smoke.test.js"
   },

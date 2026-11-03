@@ -1,273 +1,82 @@
-
-import { test } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { processRefund } from "../src/services/refund.service.js";
+import { adminRefundsEnabled, refundAmountCents } from "../src/services/orderRefund.service.js";
 
-test("processRefund completes a successful refund", async () => {
-    const queries = [];
-    let committed = false;
+function fixture() {
+  const rr = { id: "request-1", order_id: "order-1", payment_id: "payment-1",
+    total: "50.00", status: "pending", idempotency_key: "durable-key", stripe_payment_intent_id: "pi_test_1" };
+  let released = false;
+  const created = [];
+  const database = { connect: async () => ({
+    query: async () => ({ rows: [rr] }), release: () => { released = true; }
+  }) };
+  const refund = { id: "re_test_1", status: "succeeded", amount: 5000,
+    currency: "usd", payment_intent: "pi_test_1", metadata: { refund_request_id: rr.id } };
+  const stripeClient = {
+    paymentIntents: { retrieve: async () => {
+      assert.equal(released, true, "release DB connection before Stripe");
+      return { currency: "usd", amount_received: 5000, status: "succeeded", livemode: false };
+    } },
+    refunds: {
+      list: async () => ({ data: [], has_more: false }),
+      create: async (params, options) => { created.push({ params, options }); return refund; },
+      retrieve: async () => refund
+    }
+  };
+  const applyRefund = async (db, value) => {
+    assert.equal(db, database);
+    assert.equal(value, refund);
+    return { status: value.status, refundId: value.id };
+  };
+  return { rr, refund, created, stripeClient, database, applyRefund };
+}
 
-    const fakeClient = {
-        async query(sql, params = []) {
-            queries.push({ sql, params });
-
-            if (sql.includes("SELECT") &&
-                sql.includes("FROM refund_requests")) {
-                return {
-                    rowCount: 1,
-                    rows: [{
-                        id: "refund-request-1",
-                        order_id: "order-1",
-                        payment_id: "payment-1",
-                        idempotency_key: "order-refund-order-1",
-                        status: "pending",
-                        stripe_refund_id: null,
-                        stripe_payment_intent_id: "pi_test_123",
-                        total: "50.00"
-                    }]
-                };
-            }
-
-            if (sql.includes("UPDATE")) {
-                return { rowCount: 1, rows: [] };
-            }
-
-            if (sql === "COMMIT") {
-                committed = true;
-            }
-
-            return { rowCount: 0, rows: [] };
-        },
-        release() { }
-    };
-
-    const fakeDatabase = {
-        async connect() {
-            return fakeClient;
-        }
-    };
-
-    const fakeStripe = {
-        paymentIntents: {
-            async retrieve() {
-                return {
-                    id: "pi_test_123",
-                    status: "succeeded",
-                    currency: "usd",
-                    amount_received: 5000
-                };
-            }
-        },
-        refunds: {
-            async list() {
-                return {
-                    data: [],
-                    has_more: false
-                };
-            },
-            async create() {
-                return {
-                    id: "re_test_123",
-                    status: "succeeded",
-                    payment_intent: "pi_test_123",
-                    amount: 5000,
-                    currency: "usd"
-                };
-            }
-        }
-    };
-
-    const result = await processRefund(
-        "refund-request-1",
-        {
-            database: fakeDatabase,
-            stripeClient: fakeStripe
-        }
-    );
-
-    assert.equal(result.status, "succeeded");
-    assert.equal(result.refundId, "re_test_123");
-    assert.equal(committed, true);
-
-    assert.ok(
-        queries.some(({ sql }) =>
-            sql.includes("UPDATE refund_requests")
-        )
-    );
-
-    assert.ok(
-        queries.some(({ sql }) =>
-            sql.includes("UPDATE payments")
-        )
-    );
-
-    assert.ok(
-        queries.some(({ sql }) =>
-            sql.includes("UPDATE orders")
-        )
-    );
+test("refund rollout requires an explicit flag and a test key", () => {
+  assert.equal(adminRefundsEnabled({ ENABLE_ADMIN_REFUNDS: "true", STRIPE_SECRET_KEY: "sk_test_dummy" }), true);
+  for (const key of [undefined, "sk_live_dummy", "rk_live_dummy"]) {
+    assert.equal(adminRefundsEnabled({ ENABLE_ADMIN_REFUNDS: "true", STRIPE_SECRET_KEY: key }), false);
+  }
+  assert.equal(adminRefundsEnabled({ STRIPE_SECRET_KEY: "sk_test_dummy" }), false);
 });
 
-
-test("processRefund rejects a payment amount mismatch", async () => {
-    let refundCreated = false;
-    let rolledBack = false;
-
-    const fakeClient = {
-        async query(sql) {
-            if (sql.includes("FROM refund_requests")) {
-                return {
-                    rowCount: 1,
-                    rows: [{
-                        id: "refund-request-2",
-                        order_id: "order-2",
-                        payment_id: "payment-2",
-                        idempotency_key: "order-refund-order-2",
-                        status: "pending",
-                        stripe_refund_id: null,
-                        stripe_payment_intent_id: "pi_test_456",
-                        total: "50.00"
-                    }]
-                };
-            }
-
-            if (sql === "ROLLBACK") {
-                rolledBack = true;
-            }
-
-            return { rowCount: 0, rows: [] };
-        },
-        release() { }
-    };
-
-    const fakeStripe = {
-        paymentIntents: {
-            async retrieve() {
-                return {
-                    status: "succeeded",
-                    currency: "usd",
-                    amount_received: 4000
-                };
-            }
-        },
-        refunds: {
-            async create() {
-                refundCreated = true;
-                throw new Error("Refund should not be created");
-            }
-        }
-    };
-
-    await assert.rejects(
-        () => processRefund("refund-request-2", {
-            database: {
-                async connect() {
-                    return fakeClient;
-                }
-            },
-            stripeClient: fakeStripe
-        }),
-        /Payment amount or currency mismatch/
-    );
-
-    assert.equal(refundCreated, false);
-    assert.equal(rolledBack, true);
+test("refund amount conversion rejects invalid and unsafe values", () => {
+  assert.equal(refundAmountCents("42.99"), 4299);
+  for (const value of ["0", "-1", "1.001", "NaN", "999999999999999999999"])
+    assert.throws(() => refundAmountCents(value));
 });
 
+test("full refund uses the persisted key outside a database transaction", async () => {
+  const f = fixture();
+  assert.equal((await processRefund(f.rr.id, f)).status, "succeeded");
+  assert.equal(f.created.length, 1);
+  assert.equal(f.created[0].params.amount, 5000);
+  assert.equal(f.created[0].options.idempotencyKey, f.rr.idempotency_key);
+});
 
-test("processRefund reuses an existing Stripe refund", async () => {
-    let refundCreated = false;
-    const queries = [];
+test("ambiguous history and incorrect payments never create refunds", async () => {
+  for (const scenario of ["amount", "live", "external", "paginated", "duplicate"]) {
+    const f = fixture();
+    if (scenario === "amount" || scenario === "live") {
+      f.stripeClient.paymentIntents.retrieve = async () => ({ currency: "usd", status: "succeeded",
+        amount_received: scenario === "amount" ? 4999 : 5000, livemode: scenario === "live" });
+    } else {
+      f.stripeClient.refunds.list = async () => ({
+        data: scenario === "external" ? [{ metadata: {} }] : scenario === "duplicate" ? [f.refund, f.refund] : [],
+        has_more: scenario === "paginated"
+      });
+    }
+    await assert.rejects(() => processRefund(f.rr.id, f));
+    assert.equal(f.created.length, 0);
+  }
+});
 
-    const fakeClient = {
-        async query(sql) {
-            queries.push(sql);
-
-            if (sql.includes("FROM refund_requests")) {
-                return {
-                    rowCount: 1,
-                    rows: [{
-                        id: "refund-request-3",
-                        order_id: "order-3",
-                        payment_id: "payment-3",
-                        idempotency_key: "order-refund-order-3",
-                        status: "processing",
-                        stripe_refund_id: null,
-                        stripe_payment_intent_id: "pi_test_789",
-                        total: "50.00"
-                    }]
-                };
-            }
-
-            return { rowCount: 1, rows: [] };
-        },
-        release() { }
-    };
-
-    const fakeStripe = {
-        paymentIntents: {
-            async retrieve() {
-                return {
-                    status: "succeeded",
-                    currency: "usd",
-                    amount_received: 5000
-                };
-            }
-        },
-        refunds: {
-            async list() {
-                return {
-                    data: [{
-                        id: "re_existing_123",
-                        status: "succeeded",
-                        payment_intent: "pi_test_789",
-                        amount: 5000,
-                        currency: "usd",
-                        metadata: {
-                            refund_request_id: "refund-request-3"
-                        }
-                    }],
-                    has_more: false
-                };
-            },
-            async create() {
-                refundCreated = true;
-                throw new Error("Duplicate refund attempted");
-            }
-        }
-    };
-
-    const result = await processRefund(
-        "refund-request-3",
-        {
-            database: {
-                async connect() {
-                    return fakeClient;
-                }
-            },
-            stripeClient: fakeStripe
-        }
-    );
-
-    assert.equal(result.status, "succeeded");
-    assert.equal(result.refundId, "re_existing_123");
-    assert.equal(refundCreated, false);
-
-    assert.ok(
-        queries.some((sql) =>
-            sql.includes("UPDATE refund_requests")
-        )
-    );
-
-    assert.ok(
-        queries.some((sql) =>
-            sql.includes("UPDATE payments")
-        )
-    );
-
-    assert.ok(
-        queries.some((sql) =>
-            sql.includes("UPDATE orders")
-        )
-    );
+test("retries recover the existing matching refund rather than creating another", async () => {
+  const f = fixture();
+  f.stripeClient.refunds.list = async () => ({ data: [f.refund], has_more: false });
+  assert.equal((await processRefund(f.rr.id, f)).status, "succeeded");
+  assert.equal(f.created.length, 0);
+  f.rr.stripe_refund_id = f.refund.id;
+  assert.equal((await processRefund(f.rr.id, f)).status, "succeeded");
+  assert.equal(f.created.length, 0);
 });

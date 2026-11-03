@@ -30,6 +30,8 @@ const files = [
   "testCheckoutExpiration.js",
   "admin-order-workflow.unit.test.js",
   "checkout-purchase-flow.http.test.js",
+  "refund-service.test.js",
+  "refund-workflow.http.test.js",
 ];
 
 // Override only child-process configuration. Never modify the local .env or
@@ -42,6 +44,7 @@ const options = {
     ...process.env,
     NODE_ENV: "test",
     DB_NAME: "sweet_by_andre_test",
+    DATABASE_URL: "",
     STRIPE_SECRET_KEY: "sk_test_local_validation_only",
     SESSION_SECRET: "local-checkout-validation-session-secret",
     FRONTEND_URL: "http://localhost:5173",
@@ -59,6 +62,8 @@ const deliverySetup = spawnSync(process.execPath, ["scripts/installDelivery.js"]
 if (deliverySetup.status !== 0) process.exit(deliverySetup.status ?? 1);
 const productionSetup = spawnSync(process.execPath, ["scripts/installProduction.js"], options);
 if (productionSetup.status !== 0) process.exit(productionSetup.status ?? 1);
+const refundSetup = spawnSync(process.execPath, ["scripts/installRefunds.js"], options);
+if (refundSetup.status !== 0) process.exit(refundSetup.status ?? 1);
 const result = spawnSync(process.execPath, [
   "--test", "--test-concurrency=1", ...files.map((file) => `tests/${file}`),
 ], options);

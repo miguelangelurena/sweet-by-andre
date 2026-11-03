@@ -475,7 +475,7 @@ CREATE TABLE public.orders (
     delivery_hold_until timestamp with time zone,
     CONSTRAINT orders_order_status_check CHECK ((order_status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'preparing'::text, 'ready'::text, 'completed'::text, 'cancelled'::text, 'refund_pending'::text]))),
     CONSTRAINT orders_owner_check CHECK ((((user_id IS NOT NULL) AND (guest_cart_id IS NULL)) OR ((user_id IS NULL) AND (guest_cart_id IS NOT NULL)))),
-    CONSTRAINT orders_payment_status_check CHECK ((payment_status = ANY (ARRAY['pending'::text, 'partial'::text, 'paid'::text]))),
+    CONSTRAINT orders_payment_status_check CHECK ((payment_status = ANY (ARRAY['pending'::text, 'partial'::text, 'paid'::text, 'failed'::text, 'refund_pending'::text, 'refunded'::text]))),
     CONSTRAINT orders_shipping_cost_check CHECK ((shipping_cost >= (0)::numeric)),
     CONSTRAINT orders_subtotal_check CHECK ((subtotal >= (0)::numeric)),
     CONSTRAINT orders_tax_amount_check CHECK ((tax_amount >= (0)::numeric)),
@@ -630,6 +630,9 @@ CREATE TABLE public.refund_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     order_id uuid NOT NULL,
     payment_id uuid NOT NULL,
+    requested_by uuid,
+    reason text,
+    resources_returned_at timestamptz,
     idempotency_key text NOT NULL,
     stripe_refund_id text,
     status text DEFAULT 'pending'::text NOT NULL,
@@ -1437,6 +1440,9 @@ ALTER TABLE ONLY public.refund_requests
 
 ALTER TABLE ONLY public.refund_requests
     ADD CONSTRAINT refund_requests_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id);
+
+ALTER TABLE ONLY public.refund_requests
+    ADD CONSTRAINT refund_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.users(id);
 
 
 --

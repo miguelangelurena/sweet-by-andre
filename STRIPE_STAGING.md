@@ -45,6 +45,13 @@ con eventos **snapshot** para:
 
 - `checkout.session.completed`
 - `checkout.session.expired`
+- `refund.created`, `refund.updated`, `refund.failed` (para rechazo y reembolso)
+
+El flujo de rechazo requiere publicar el código actualizado y activar
+`ENABLE_ADMIN_REFUNDS=true` con la clave de pruebas. Sigue
+[la guía de reembolsos](backend/tests/REFUND_VALIDATION.md) antes de crear el
+pedido de esa prueba. La migración se aplica al arrancar staging; los reembolsos
+con claves reales siguen deshabilitados.
 
 El handler verifica la firma sobre el cuerpo original. El retorno del navegador
 y el panel de administración no marcan pedidos como pagados.

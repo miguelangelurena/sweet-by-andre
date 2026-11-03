@@ -39,7 +39,7 @@ if (updated !== currentText) {
   console.log("Local webhook signing secret updated in backend/.env. Restart the backend to load it.");
 }
 const [listenCommand, listenArgs] = command([
-  "listen", "--skip-update", "--events", "checkout.session.completed,checkout.session.expired",
+  "listen", "--skip-update", "--events", "checkout.session.completed,checkout.session.expired,refund.created,refund.updated,refund.failed",
   "--forward-to", "http://localhost:5000/api/payments/webhook",
 ]);
 const listener = spawn(listenCommand, listenArgs, { ...options, stdio: ["ignore", "pipe", "pipe"] });

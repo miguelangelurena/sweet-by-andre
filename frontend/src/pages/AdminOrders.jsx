@@ -190,6 +190,7 @@ export default function AdminOrders() {
   const [refundReview, setRefundReview] = useState(null);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const requestsVersion = useRef(0);
   const statusInFlight = useRef(false);
@@ -317,10 +318,46 @@ export default function AdminOrders() {
         `/admin/orders/${encodeURIComponent(selectedId)}/refund-review`,
       );
       setRefundReview(result.review);
+      const review = result.review;
+      setDetail(previous => previous?.order?.id === review.order_id
+        ? { ...previous, order: { ...previous.order, payment_status: review.payment_status, order_status: review.order_status } }
+        : previous);
+      setOrders(previous => previous.map(entry => entry.id === review.order_id
+        ? { ...entry, payment_status: review.payment_status, order_status: review.order_status }
+        : entry));
     } catch (err) {
       setRefundError(err.message || "Could not load refund review.");
     } finally {
       setRefundLoading(false);
+    }
+  }
+
+  async function rejectAndRefund({ confirmed = false } = {}) {
+    if (!order || refundReview?.order_id !== order.id || statusBusy || statusInFlight.current) return;
+    const reason = (refundReview?.can_retry ? refundReview.reason : rejectionReason).trim();
+    if (!reason) { setRefundError("Enter a reason before rejecting the order."); return; }
+    if (!confirmed) { setConfirmation("refund"); return; }
+    const id = order.id;
+    statusInFlight.current = true;
+    setStatusBusy(true);
+    setRefundError("");
+    try {
+      const csrf = await apiRequest("/cart/csrf-token");
+      if (!csrf?.csrf_token) throw new Error("Could not obtain admin session security token.");
+      const result = await apiRequest(`/admin/orders/${encodeURIComponent(id)}/reject`, {
+        method: "POST", headers: { "X-CSRF-Token": csrf.csrf_token },
+        body: JSON.stringify({ reason })
+      });
+      setStatusNotice(result.message);
+      setRefreshVersion(value => value + 1);
+      setRefundReview(null);
+    } catch (err) {
+      setRefundError(err.message || "Could not request the refund. Check its status before retrying.");
+      setRefreshVersion(value => value + 1);
+    } finally {
+      setConfirmation(null);
+      statusInFlight.current = false;
+      setStatusBusy(false);
     }
   }
 
@@ -368,6 +405,7 @@ export default function AdminOrders() {
     setStatusError("");
     setStatusNotice("");
     setConfirmation(null);
+    setRejectionReason("");
     setSelectedId(id);
   }
 
@@ -531,6 +569,8 @@ export default function AdminOrders() {
               { value: "pending", label: "Pending" },
               { value: "paid", label: "Paid" },
               { value: "failed", label: "Failed" },
+              { value: "refund_pending", label: "Refund pending" },
+              { value: "refunded", label: "Refunded" },
             ]}
           />
         </div>
@@ -555,7 +595,7 @@ export default function AdminOrders() {
             options={[
               { value: "all", label: "All statuses" },
               ...Object.keys(NEXT_FULFILLMENT_ACTION)
-                .concat("completed", "cancelled")
+                .concat("completed", "cancelled", "refund_pending")
                 .map((state) => ({ value: state, label: statusLabel(state) })),
             ]}
           />
@@ -923,8 +963,8 @@ export default function AdminOrders() {
                   >
                     <h3 className="font-semibold">Refund review</h3>
                     <p className="mt-2 text-sm text-[#756B69]">
-                      Read-only information. No payment or refund will be
-                      initiated.
+                      Checking the status does not issue a refund. Rejecting a
+                      paid order requires a separate confirmation below.
                     </p>
                     <button
                       type="button"
@@ -948,7 +988,7 @@ export default function AdminOrders() {
                         {refundError}
                       </p>
                     )}
-                    {refundReview && (
+                    {refundReview?.order_id === order.id && (
                       <div className="mt-3 rounded-lg bg-[#FAF7F5] p-3 text-sm">
                         <p className="font-semibold">
                           {refundReview.review_status.replaceAll("_", " ")}
@@ -956,10 +996,30 @@ export default function AdminOrders() {
                         <p className="mt-1 text-[#756B69]">
                           {refundReview.message}
                         </p>
+                        {refundReview.last_error && <p className="mt-2 text-red-700">{refundReview.last_error}</p>}
                         <p className="mt-2 text-xs text-[#756B69]">
-                          Refunds are disabled. Contact the developer for Stripe
-                          reconciliation.
+                          {refundReview.refunds_enabled
+                            ? `Refund status: ${refundReview.refund_status ?? "Not requested"}. Only orders awaiting acceptance can be rejected here.`
+                            : "Refunds are disabled. Contact the developer for Stripe reconciliation."}
                         </p>
+                        {(refundReview.can_reject || refundReview.can_retry) && (
+                          <div className="mt-4 space-y-3">
+                            {refundReview.can_reject && (
+                              <label className="block text-sm font-medium">
+                                Reason for rejection
+                                <textarea value={rejectionReason} maxLength={500}
+                                  onChange={event => setRejectionReason(event.target.value)}
+                                  disabled={statusBusy}
+                                  className="mt-2 block min-h-24 w-full rounded-xl border border-[#E7DCD9] p-3" />
+                              </label>
+                            )}
+                            <button type="button" onClick={rejectAndRefund}
+                              disabled={statusBusy || (!refundReview.can_retry && !rejectionReason.trim())}
+                              className="min-h-12 rounded-full border border-red-300 px-5 py-3 font-semibold text-red-700 disabled:opacity-50">
+                              {refundReview.can_retry ? "Retry existing refund" : "Reject and refund in full"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </section>
@@ -971,8 +1031,9 @@ export default function AdminOrders() {
                     <h3 className="font-semibold">Fulfillment</h3>
                     {order.payment_status !== "paid" ? (
                       <p className="mt-2 text-sm text-[#756B69]">
-                        Waiting for confirmed payment. Orders cannot be accepted
-                        or prepared before Stripe confirms the payment.
+                        {order.payment_status === "refund_pending" || order.payment_status === "refunded"
+                          ? "This order is in the refund workflow and cannot advance through fulfillment."
+                          : "Waiting for confirmed payment. Orders cannot be accepted or prepared before Stripe confirms the payment."}
                       </p>
                     ) : nextAction ? (
                       <>
@@ -1038,21 +1099,25 @@ export default function AdminOrders() {
       )}
       {confirmation && order && (
         <ConfirmDialog
-          title={confirmation === "complete" ? "Complete this order?" : "Cancel this request?"}
+          title={confirmation === "refund" ? "Reject and refund this order?" : confirmation === "complete" ? "Complete this order?" : "Cancel this request?"}
           description={
-            confirmation === "complete"
+            confirmation === "refund"
+              ? `Request a full refund of ${money(order.total)} and reject this order. It cannot be accepted while the refund is being resolved.`
+              : confirmation === "complete"
               ? order.fulfillment_method === "pickup"
                 ? "Mark this pickup as completed once the customer has collected their order."
                 : "Mark this order as completed once the customer has received it."
               : "This unpaid request will be marked as cancelled. It will remain in your order history."
           }
-          confirmLabel={confirmation === "complete" ? "Complete order" : "Cancel request"}
-          cancelLabel={confirmation === "complete" ? "Keep as ready" : "Keep request"}
-          destructive={confirmation === "cancel"}
+          confirmLabel={confirmation === "refund" ? "Confirm full refund" : confirmation === "complete" ? "Complete order" : "Cancel request"}
+          cancelLabel={confirmation === "refund" ? "Close" : confirmation === "complete" ? "Keep as ready" : "Keep request"}
+          destructive={confirmation !== "complete"}
           busy={statusBusy}
           onCancel={() => setConfirmation(null)}
           onConfirm={() =>
-            confirmation === "complete"
+            confirmation === "refund"
+              ? rejectAndRefund({ confirmed: true })
+              : confirmation === "complete"
               ? advanceStatus({ completionConfirmed: true })
               : cancelUnpaid({ cancellationConfirmed: true })
           }
