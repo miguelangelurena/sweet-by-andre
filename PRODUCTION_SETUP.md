@@ -20,7 +20,9 @@ En Render, usa un **servicio separado** del staging con su propia base, el Docke
 
 El comando del contenedor es `node scripts/startHosted.js`, que selecciona el inicializador por `APP_ENV`. Puedes dejar **Docker Command** sin sobrescribir o usar `node scripts/startProduction.js`. No reutilices `startStaging.js`. Configura `/api/health` como comprobación de salud.
 
-La imagen completa de Docker queda pendiente de comprobar: durante esta preparación el motor local no estaba disponible. Sí se probaron el arranque real de Node, PostgreSQL, sesiones HTTPS y las compilaciones de frontend de ambos entornos.
+Las imágenes completas de staging y producción ya se compilaron y probaron en Docker con PostgreSQL 18 desechable. La validación cubre inicialización desde cero, frontend, cookies seguras mediante el proxy simulado, CSRF, cierre de sesión y conservación de cambios y sesiones tras reiniciar. El primer arranque restaura la ruta de búsqueda de PostgreSQL antes de devolver la conexión de inicialización al pool de la API.
+
+Para repetirla, con Docker Desktop activo, ejecuta `npm.cmd run test:docker` desde `backend`. Descarga las imágenes base necesarias, crea una red y contenedores temporales con credenciales generadas y elimina esos recursos al terminar. Solo publica los puertos HTTP de prueba en loopback; no publica PostgreSQL ni usa bases o cuentas del hosting. Las dos imágenes locales `sweet-by-andre:validation-staging` y `sweet-by-andre:validation-production` permanecen disponibles en la caché de Docker.
 
 ## Variables requeridas
 
@@ -99,4 +101,4 @@ La prueba de despliegue exige PostgreSQL local con permiso para crear bases. Cre
 
 `test:hosting` compila a un directorio temporal: verifica que producción no tenga el banner de staging, que staging lo conserve y que falle una compilación de producción que intente activar pagos. `npm run build` sin configurar el entorno sigue siendo una compilación local; la imagen hospedada define los valores correspondientes mediante Docker.
 
-La recuperación administrativa asistida ya está preparada en [ADMIN_ACCESS_RECOVERY.md](ADMIN_ACCESS_RECOVERY.md). Antes de conectar datos reales todavía faltan la validación de la imagen Docker, los respaldos externos y alertas, el catálogo aprobado, las políticas e impuestos, el acuerdo de soporte y las fases de activación de pagos y correos. Sigue [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) y [BACKUPS.md](BACKUPS.md).
+La recuperación administrativa asistida y la validación Docker ya están preparadas. Antes de conectar datos reales todavía faltan los respaldos externos y alertas, el catálogo aprobado, las políticas e impuestos, el acuerdo de soporte y las fases de activación de pagos y correos. Sigue [ADMIN_ACCESS_RECOVERY.md](ADMIN_ACCESS_RECOVERY.md), [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) y [BACKUPS.md](BACKUPS.md).

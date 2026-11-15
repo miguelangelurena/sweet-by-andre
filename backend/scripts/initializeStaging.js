@@ -54,7 +54,9 @@ export async function initializeStaging(client, { email, password }) {
           "Set STAGING_ADMIN_PASSWORD to a unique password with at least 16 characters and at most 72 UTF-8 bytes",
         );
       await client.query(await loadSql("bootstrap.sql"));
-      await client.query("SET LOCAL search_path TO public,pg_catalog");
+      // The bootstrap dump clears this connection's search_path for the whole
+      // session. Restore it beyond COMMIT before returning it to the API pool.
+      await client.query("SET search_path TO public,pg_catalog");
       await client.query(
         "CREATE TABLE public.deployment_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL)",
       );

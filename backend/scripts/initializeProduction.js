@@ -35,7 +35,9 @@ export async function initializeProduction(client, env = process.env) {
       if (!first || !last || first.length > 100 || last.length > 100)
         throw new Error("Set PRODUCTION_ADMIN_FIRST_NAME and PRODUCTION_ADMIN_LAST_NAME");
       await client.query(await load("bootstrap.sql"));
-      await client.query("SET LOCAL search_path TO public,pg_catalog");
+      // This connection is reused by the API after initialization. The dump's
+      // session-level empty search_path must not survive the initial COMMIT.
+      await client.query("SET search_path TO public,pg_catalog");
       await client.query("CREATE TABLE public.deployment_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL)");
       await client.query("INSERT INTO public.deployment_metadata (key,value) VALUES ('environment','production'),('bootstrap_version','1')");
       await client.query(`INSERT INTO public.users (first_name,last_name,email,phone,password_hash,role)

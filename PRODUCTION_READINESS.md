@@ -20,7 +20,7 @@ No reutilizar `SESSION_SECRET`, `CSRF_SECRET`, contraseña administrativa, conex
 
 ## Cambios técnicos necesarios antes de crear el entorno final
 
-- Validar la imagen Docker completa en un motor disponible. El Dockerfile ya permite elegir staging o producción; el backend y las compilaciones del frontend se probaron localmente.
+- Las imágenes Docker de ambos entornos ya pasaron la validación con PostgreSQL 18 temporal, primer arranque, login y reinicio. Repetir `npm.cmd run test:docker` cuando cambien la imagen o la inicialización.
 - Crear el servicio y la base separados con la configuración de [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md). El inicializador de producción ya crea al administrador, mantiene el catálogo vacío y rechaza bases de staging; no usa `startStaging.js`.
 - Cargar el catálogo aprobado desde el panel o preparar una importación selectiva revisada, sin usuarios, sesiones ni pedidos de pruebas.
 - Mantener frontend y backend en el mismo origen HTTPS. Configurar `FRONTEND_URL` con el origen final y comprobar cookies seguras, CORS, CSRF y la cadena real de proxies.

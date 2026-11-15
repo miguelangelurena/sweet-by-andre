@@ -53,10 +53,11 @@ Desde `backend`:
 ```powershell
 npm.cmd run test:checkout
 npm.cmd run test:staging
+npm.cmd run test:docker
 npm.cmd run notifications:status
 ```
 
-La suite de checkout requiere una base separada llamada `sweet_by_andre_test` con el esquema base. El ejecutor configura esa base y evita utilizar la de desarrollo. Las pruebas automatizadas no realizan cobros ni envían correos reales.
+La suite de checkout requiere una base separada llamada `sweet_by_andre_test` con el esquema base. El ejecutor configura esa base y evita utilizar la de desarrollo. `test:docker` requiere Docker activo y valida ambas imágenes con PostgreSQL desechable. Las pruebas automatizadas no realizan cobros ni envían correos reales.
 
 ## Guías
 
