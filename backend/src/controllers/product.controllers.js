@@ -978,7 +978,16 @@ export const uploadProductImage = async (req, res) => {
             }
         }
 
-        securityError(error, "Upload product image error:");
+        securityError(error, "Upload product image error:", req.requestId);
+
+        if (error.code === "IMAGE_HOSTING_NOT_CONFIGURED") {
+            return res.status(503).json({
+                status: "ERROR",
+                code: "IMAGE_HOSTING_NOT_CONFIGURED",
+                message: "Photo uploads are not configured yet. Contact your website support.",
+                request_id: req.requestId
+            });
+        }
 
         if (error.code === "23505") {
             return res.status(409).json({

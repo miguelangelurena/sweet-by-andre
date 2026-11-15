@@ -15,6 +15,8 @@ import {
 import { requestRateLimit } from "../src/middleware/requestRateLimit.js";
 import { securityError } from "../src/utils/securityLog.js";
 import { deleteImageFromCloudinary } from "../src/services/cloudinary.service.js";
+import { uploadImageToCloudinary } from "../src/services/cloudinary.service.js";
+import { cloudinary } from "../src/config/cloudinary.js";
 import {
   generateGuestToken,
   hashGuestToken,
@@ -24,6 +26,18 @@ import { stripe } from "../src/config/stripe.js";
 import { securityHeaders } from "../src/middleware/httpSecurity.js";
 
 after(() => pool.end());
+
+test("missing image hosting credentials fail before any provider request", async (t) => {
+  t.mock.method(cloudinary, "config", () => ({}));
+  const upload = t.mock.method(cloudinary.uploader, "upload_stream", () =>
+    assert.fail("Unconfigured image hosting must not be contacted"),
+  );
+  await assert.rejects(
+    uploadImageToCloudinary(Buffer.from("fixture"), randomUUID()),
+    { code: "IMAGE_HOSTING_NOT_CONFIGURED" },
+  );
+  assert.equal(upload.mock.callCount(), 0);
+});
 
 test("hosted security headers enforce HTTPS while local development remains usable", async () => {
   const previous = process.env.NODE_ENV;
@@ -435,6 +449,36 @@ test(
           await assert.rejects(
             deleteImageFromCloudinary("another-business/products/image"),
             /restricted/,
+          );
+        },
+      );
+      await t.test(
+        "unconfigured image hosting returns a safe actionable response",
+        async (imageTest) => {
+          imageTest.mock.method(cloudinary, "config", () => ({}));
+          imageTest.mock.method(cloudinary.uploader, "upload_stream", () =>
+            assert.fail("Image provider must not be contacted"),
+          );
+          const png = Buffer.from(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3ioAAAAASUVORK5CYII=",
+            "base64",
+          );
+          const unavailable = await agent
+            .post(`/api/products/${product}/images/upload`)
+            .set("X-CSRF-Token", token)
+            .attach("image", png, {
+              filename: "fixture.png",
+              contentType: "image/png",
+            })
+            .expect(503);
+          assert.equal(unavailable.body.code, "IMAGE_HOSTING_NOT_CONFIGURED");
+          assert.match(
+            unavailable.body.message,
+            /Photo uploads are not configured/,
+          );
+          assert.equal(
+            JSON.stringify(unavailable.body).includes("api_secret"),
+            false,
           );
         },
       );

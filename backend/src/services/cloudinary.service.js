@@ -7,6 +7,10 @@ export const uploadImageToCloudinary = async (
     fileBuffer,
     productId
 ) => {
+    const config = cloudinary.config();
+    if (![config.cloud_name, config.api_key, config.api_secret].every(value => typeof value === "string" && value.trim())) {
+        throw Object.assign(new Error("Image hosting is not configured"), { code: "IMAGE_HOSTING_NOT_CONFIGURED" });
+    }
     return new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
             {
