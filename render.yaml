@@ -31,8 +31,8 @@ services:
         sync: false
       # Checkout defaults to false in Dockerfile. Configure the test switch in
       # Render Environment after adding the Stripe test key and signing secret.
-      - key: ENABLE_TRANSACTIONAL_NOTIFICATIONS
-        value: "false"
+      # Email defaults off in code. Activate in Render Environment only after
+      # setting Brevo, a start timestamp and a staging recipient allowlist.
       - key: ENABLE_TRANSACTIONAL_SMS
         value: "false"
 

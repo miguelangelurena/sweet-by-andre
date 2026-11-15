@@ -50,6 +50,8 @@ test(
       ENABLE_STRIPE_CHECKOUT: "false",
       ENABLE_TRANSACTIONAL_NOTIFICATIONS: "false",
       ENABLE_TRANSACTIONAL_SMS: "false",
+      BREVO_API_KEY: "",
+      BREVO_SENDER_EMAIL: "",
       SESSION_SECRET: randomBytes(32).toString("hex"),
       CSRF_SECRET: randomBytes(32).toString("hex"),
       STAGING_ADMIN_EMAIL: "staging-smoke@example.com",
@@ -72,6 +74,9 @@ test(
       created = true;
       setup();
       staging = new Pool({ connectionString: url.href });
+      assert.equal((await staging.query(`SELECT COUNT(*)::int AS count FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='order_notification_outbox'
+        AND column_name IN ('retryable','claim_token','provider_message_id')`)).rows[0].count, 3);
       assert.equal((await staging.query(`SELECT COUNT(*)::int AS count FROM information_schema.columns
         WHERE table_schema='public' AND table_name='refund_requests'
         AND column_name IN ('requested_by','reason','resources_returned_at')`)).rows[0].count, 3);

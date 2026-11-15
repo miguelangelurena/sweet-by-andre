@@ -24,6 +24,15 @@ SET row_security = off;
 
 CREATE SCHEMA IF NOT EXISTS public;
 
+-- Durable, short-lived authentication throttle counters (no raw PII).
+CREATE TABLE IF NOT EXISTS public.auth_rate_limits (
+    key TEXT PRIMARY KEY,
+    attempts INTEGER NOT NULL CHECK (attempts > 0),
+    expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS auth_rate_limits_expiry_idx
+    ON public.auth_rate_limits (expires_at);
+
 
 --
 -- Name: protect_checkout_delivery(); Type: FUNCTION; Schema: public; Owner: -
@@ -192,35 +201,36 @@ $$;
 -- Name: queue_order_transactional_email(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.queue_order_transactional_email() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
+CREATE FUNCTION public.queue_order_transactional_email()
+RETURNS trigger LANGUAGE plpgsql AS $function$
 DECLARE notification_event TEXT;
 BEGIN
-    notification_event := NULL;
-    IF NEW.payment_status = 'paid' AND OLD.payment_status IS DISTINCT FROM 'paid' THEN
-        notification_event := 'order_paid';
-    ELSIF NEW.order_status IS DISTINCT FROM OLD.order_status AND NEW.payment_status = 'paid' THEN
-        notification_event := CASE NEW.order_status
-           WHEN 'confirmed' THEN 'order_confirmed'
-           WHEN 'ready' THEN 'order_ready'
-           WHEN 'completed' THEN 'order_completed'
-           ELSE NULL END;
-    END IF;
-    IF notification_event IS NOT NULL AND NULLIF(BTRIM(NEW.customer_email), '') IS NOT NULL THEN
-        INSERT INTO order_notification_outbox(order_id, event_type, channel)
-        VALUES (NEW.id, notification_event, 'email')
-        ON CONFLICT (order_id, event_type, channel) DO NOTHING;
-    END IF;
-    -- SMS is only queued when the customer explicitly opted in.
-    IF notification_event IS NOT NULL AND NEW.sms_opt_in = TRUE AND NULLIF(BTRIM(NEW.customer_phone), '') IS NOT NULL THEN
-        INSERT INTO order_notification_outbox(order_id, event_type, channel)
-        VALUES (NEW.id, notification_event, 'sms')
-        ON CONFLICT (order_id, event_type, channel) DO NOTHING;
-    END IF;
-    RETURN NEW;
+  IF NEW.payment_status='refunded' AND OLD.payment_status IS DISTINCT FROM 'refunded' THEN
+    notification_event := 'order_refunded';
+  ELSIF NEW.order_status='refund_pending' AND OLD.order_status='pending' AND OLD.payment_status='paid' THEN
+    notification_event := 'order_rejected';
+  ELSIF NEW.payment_status='paid' AND OLD.payment_status IS DISTINCT FROM 'paid' THEN
+    notification_event := 'order_paid';
+  ELSIF NEW.order_status IS DISTINCT FROM OLD.order_status AND NEW.payment_status='paid' THEN
+    notification_event := CASE NEW.order_status
+      WHEN 'confirmed' THEN 'order_confirmed' WHEN 'ready' THEN 'order_ready'
+      WHEN 'completed' THEN 'order_completed' ELSE NULL END;
+  END IF;
+  IF notification_event IS NOT NULL AND NULLIF(BTRIM(NEW.customer_email),'') IS NOT NULL THEN
+    INSERT INTO order_notification_outbox (order_id,event_type,channel)
+    VALUES (NEW.id,notification_event,'email')
+    ON CONFLICT (order_id,event_type,channel) DO NOTHING;
+  END IF;
+  -- Preserve the existing opt-in SMS events; new refund notices are email-only.
+  IF notification_event IN ('order_paid','order_confirmed','order_ready','order_completed')
+    AND NEW.sms_opt_in=TRUE AND NULLIF(BTRIM(NEW.customer_phone),'') IS NOT NULL THEN
+    INSERT INTO order_notification_outbox (order_id,event_type,channel)
+    VALUES (NEW.id,notification_event,'sms')
+    ON CONFLICT (order_id,event_type,channel) DO NOTHING;
+  END IF;
+  RETURN NEW;
 END;
-$$;
+$function$;
 
 
 --
@@ -431,11 +441,14 @@ CREATE TABLE public.order_notification_outbox (
     claimed_at timestamp with time zone,
     sent_at timestamp with time zone,
     last_error text,
+    retryable boolean DEFAULT true NOT NULL,
+    claim_token uuid,
+    provider_message_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT order_notification_outbox_attempts_check CHECK ((attempts >= 0)),
     CONSTRAINT order_notification_outbox_channel_check CHECK ((channel = ANY (ARRAY['email'::text, 'sms'::text]))),
-    CONSTRAINT order_notification_outbox_event_type_check CHECK ((event_type = ANY (ARRAY['order_paid'::text, 'order_confirmed'::text, 'order_ready'::text, 'order_completed'::text]))),
-    CONSTRAINT order_notification_outbox_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text])))
+    CONSTRAINT order_notification_outbox_event_type_check CHECK ((event_type = ANY (ARRAY['order_paid'::text, 'order_confirmed'::text, 'order_ready'::text, 'order_completed'::text, 'order_rejected'::text, 'order_refunded'::text]))),
+    CONSTRAINT order_notification_outbox_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'uncertain'::text, 'skipped'::text])))
 );
 
 

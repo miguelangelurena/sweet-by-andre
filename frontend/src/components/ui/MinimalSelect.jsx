@@ -14,7 +14,13 @@ export default function MinimalSelect({
   onChange,
   disabled = false,
 }) {
-  const [open, setOpen] = useState(false);
+  const [requestedOpen, setOpen] = useState(false);
+  const open = requestedOpen && !disabled;
+  const [previousDisabled, setPreviousDisabled] = useState(disabled);
+  if (disabled !== previousDisabled) {
+    setPreviousDisabled(disabled);
+    if (disabled) setOpen(false);
+  }
   const [activeIndex, setActiveIndex] = useState(0);
   const [placement, setPlacement] = useState(null);
   const triggerRef = useRef(null);
@@ -33,6 +39,7 @@ export default function MinimalSelect({
 
   function closeMenu({ restoreFocus = false } = {}) {
     setOpen(false);
+    setPlacement(null);
     if (restoreFocus) triggerRef.current?.focus();
   }
 
@@ -45,10 +52,7 @@ export default function MinimalSelect({
   // Calculate the popover's position relative to the viewport. Using a portal
   // is necessary because the admin forms use overflow-hidden for rounded cards.
   useLayoutEffect(() => {
-    if (!open) {
-      setPlacement(null);
-      return;
-    }
+    if (!open) return;
 
     function updatePlacement() {
       const rect = triggerRef.current?.getBoundingClientRect();
@@ -70,6 +74,8 @@ export default function MinimalSelect({
       setPlacement({ top, left, width, maxHeight });
     }
 
+    // Measuring the trigger and placing its portal before paint prevents a
+    // visible jump. This layout effect synchronizes with DOM geometry.
     updatePlacement();
     window.addEventListener("resize", updatePlacement);
     window.addEventListener("scroll", updatePlacement, true);
@@ -99,10 +105,6 @@ export default function MinimalSelect({
     items?.[activeIndex]?.focus({ preventScroll: true });
   }, [open, activeIndex, placement]);
 
-  useEffect(() => {
-    if (disabled && open) setOpen(false);
-  }, [disabled, open]);
-
   function handleKeyDown(event) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -111,7 +113,7 @@ export default function MinimalSelect({
     }
     if (event.key === "Tab") {
       // Return focus to the trigger so tab order continues inside the form.
-      setOpen(false);
+      closeMenu();
       triggerRef.current?.focus();
       return;
     }

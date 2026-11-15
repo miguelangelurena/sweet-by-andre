@@ -12,3 +12,6 @@ backend/tests
 frontend/tests
 tmp
 output
+**/backups
+**/*.dump
+**/*.dump.partial

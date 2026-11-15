@@ -18,16 +18,8 @@ export default function ProductImageUpload({
   const inputId = useId();
 
   useEffect(() => {
-    if (!file) {
-      setPreview("");
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
-
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+    if (preview) return () => URL.revokeObjectURL(preview);
+  }, [preview]);
 
   function handleFileChange(event) {
     const selectedFile = event.target.files?.[0];
@@ -48,11 +40,13 @@ export default function ProductImageUpload({
     }
 
     setFile(selectedFile);
+    setPreview(URL.createObjectURL(selectedFile));
   }
 
   function clearFile() {
     if (uploading) return;
     setFile(null);
+    setPreview("");
     setError("");
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -68,6 +62,7 @@ export default function ProductImageUpload({
     try {
       await uploadProductImage(productId, file);
       setFile(null);
+      setPreview("");
       if (inputRef.current) inputRef.current.value = "";
       await onUploaded?.();
       setSuccess("Photo added successfully.");

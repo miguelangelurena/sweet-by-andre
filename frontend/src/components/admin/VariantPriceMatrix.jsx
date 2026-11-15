@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { updateProductVariant } from "../../services/api";
 import { compareOptionLabels } from "../../utils/naturalSort";
 
-function VariantCell({ variant, label, onSaved, madeToOrder }) {
+function VariantCell(props) {
+  const { variant } = props;
+  const key = JSON.stringify([variant?.id, variant?.price, variant?.stock, variant?.is_available]);
+  return <VariantCellEditor key={key} {...props} />;
+}
+
+function VariantCellEditor({ variant, label, onSaved, madeToOrder }) {
   const [price, setPrice] = useState(variant ? String(variant.price) : "");
   const [stock, setStock] = useState(variant ? String(variant.stock) : "");
   const [available, setAvailable] = useState(Boolean(variant?.is_available));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    setPrice(variant ? String(variant.price) : "");
-    setStock(variant ? String(variant.stock) : "");
-    setAvailable(Boolean(variant?.is_available));
-    setError("");
-  }, [variant?.id, variant?.price, variant?.stock, variant?.is_available]);
 
   if (!variant) {
     return <div className="rounded-xl bg-[#FAF7F5] p-4 text-xs text-[#867A77]">Not configured</div>;

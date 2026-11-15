@@ -49,9 +49,9 @@ export async function initializeStaging(client, { email, password }) {
         throw new Error(
           "First staging setup requires an empty database; existing application data will not be overwritten",
         );
-      if (typeof password !== "string" || password.length < 16)
+      if (typeof password !== "string" || password.length < 16 || Buffer.byteLength(password, "utf8") > 72)
         throw new Error(
-          "Set STAGING_ADMIN_PASSWORD to a unique password with at least 16 characters",
+          "Set STAGING_ADMIN_PASSWORD to a unique password with at least 16 characters and at most 72 UTF-8 bytes",
         );
       await client.query(await loadSql("bootstrap.sql"));
       await client.query("SET LOCAL search_path TO public,pg_catalog");
@@ -106,6 +106,8 @@ export async function initializeStaging(client, { email, password }) {
     await client.query(withoutTransaction(await loadSql("delivery.sql")));
     await client.query(withoutTransaction(await loadSql("production.sql")));
     await client.query(withoutTransaction(await loadSql("refunds.sql")));
+    await client.query(withoutTransaction(await loadSql("notifications.sql")));
+    await client.query(withoutTransaction(await loadSql("auth-security.sql")));
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

@@ -52,6 +52,10 @@ This follows the [Stripe CLI forwarding workflow](https://github.com/stripe/stri
 Automated results do not verify Stripe credentials, external webhook delivery,
 browser cookies, redirects, or the visual checkout flow.
 
+Transactional email activation and worker validation are documented in
+[NOTIFICATIONS_VALIDATION.md](NOTIFICATIONS_VALIDATION.md). Sending remains
+disabled unless explicitly configured, including a staging test-recipient allowlist.
+
 For the published Render environment, follow [STRIPE_STAGING.md](../../STRIPE_STAGING.md).
 
 If a local test payment finished while forwarding was stopped, recover it with
@@ -61,5 +65,6 @@ to the order, then calls the same recovery and confirmation services used by
 the webhook. It is restricted to the development/test databases and does not
 make a new charge. It is a recovery tool, not a substitute for webhook delivery.
 
-The frontend build passes. The full frontend lint check currently reports
-existing React hook errors in multiple components; those remain separate work.
+The frontend build and full lint check pass. Authentication protection and
+catalog mutation CSRF checks are covered in
+[AUTH_SECURITY_VALIDATION.md](AUTH_SECURITY_VALIDATION.md).

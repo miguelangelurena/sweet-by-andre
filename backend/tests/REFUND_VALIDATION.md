@@ -24,7 +24,9 @@ sandbox. Keep the endpoint signing secret configured in Render.
 
 Set `ENABLE_ADMIN_REFUNDS=true` in Render only with the staging test key, then
 deploy the updated code. Email/SMS remain subject to their existing flags; this
-change does not send rejection/refund notifications.
+refund feature alone does not send rejection/refund notifications. The optional
+notification worker and its controlled rollout are documented in
+[NOTIFICATIONS_VALIDATION.md](NOTIFICATIONS_VALIDATION.md).
 
 ## Manual test
 

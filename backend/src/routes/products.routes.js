@@ -32,6 +32,7 @@ import {
 
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
+import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
 
 import { handleUploadError } from "../middleware/handleUploadError.js";
 
@@ -64,6 +65,7 @@ router.post(
     "/products",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     createProduct
 );
 
@@ -71,6 +73,7 @@ router.patch(
     "/products/:id",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProduct
 );
 
@@ -78,6 +81,7 @@ router.patch(
     "/products/:id/availability",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProductAvailability
 );
 
@@ -85,6 +89,7 @@ router.post(
     "/admin/product-options/:optionId/values",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     createProductOptionValue
 );
 
@@ -93,6 +98,7 @@ router.post(
     "/admin/products/:id/variants",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     createProductVariant
 );
 
@@ -100,6 +106,7 @@ router.patch(
     "/admin/variants/:id",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProductVariant
 );
 
@@ -114,6 +121,7 @@ router.patch(
     "/admin/product-options/:optionId",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProductOption
 );
 
@@ -121,6 +129,7 @@ router.patch(
     "/admin/product-option-values/:valueId",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProductOptionValue
 );
 
@@ -128,6 +137,7 @@ router.post(
     "/admin/products/:id/options",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     createProductOption
 );
 
@@ -146,6 +156,7 @@ router.post(
     "/products/:id/images",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     addProductImage
 );
 
@@ -153,6 +164,7 @@ router.post(
     "/products/:id/images/upload",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     uploadMiddleware,
     handleUploadError,
     uploadProductImage
@@ -162,6 +174,7 @@ router.patch(
     "/products/:id/images/:imageId",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     updateProductImage
 );
 
@@ -169,6 +182,7 @@ router.delete(
     "/products/:id/images/:imageId",
     requireAuth,
     requireAdmin,
+    requireSessionCsrf,
     deleteProductImage
 );
 

@@ -187,6 +187,7 @@ test(
         const p = (
           await admin
             .post("/api/products")
+            .set("X-CSRF-Token", csrf)
             .send({ name, price: 6, stock: 0, category_id: ids.category })
             .expect(201)
         ).body.product;

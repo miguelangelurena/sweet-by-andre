@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createAdminCategory, getAdminCategories, renameAdminCategory, setAdminCategoryActive } from "../../services/api";
 
 export default function AdminCategories({ onChanged }) {
@@ -17,7 +17,10 @@ export default function AdminCategories({ onChanged }) {
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
-  useEffect(() => { if (open) load(); }, [open]);
+  function toggleOpen() {
+    if (!open) load();
+    setOpen(value => !value);
+  }
   async function saveNew(event) {
     event.preventDefault(); if (busy || !name.trim()) return;
     setBusy("new"); setError(""); setNotice("");
@@ -42,7 +45,7 @@ export default function AdminCategories({ onChanged }) {
     finally { setBusy(""); }
   }
   return <section className="mb-7 overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white shadow-sm">
-    <button type="button" aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="flex w-full items-center justify-between gap-3 p-5 text-left sm:p-6">
+    <button type="button" aria-expanded={open} onClick={toggleOpen} className="flex w-full items-center justify-between gap-3 p-5 text-left sm:p-6">
       <span><span className="block font-serif text-2xl">Categories</span><span className="mt-1 block text-sm text-[#756B69]">Add, rename, hide, or restore a bakery category.</span></span>
       <span aria-hidden="true" className="font-semibold text-[#B76473]">{open ? "Hide −" : "Manage +"}</span>
     </button>

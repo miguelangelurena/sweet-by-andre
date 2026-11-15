@@ -5,7 +5,11 @@ import {
   deleteProductImage,
 } from "../../services/api";
 
-export default function AdminProductImages({
+export default function AdminProductImages(props) {
+  return <ProductImages key={props.product.id} {...props} />;
+}
+
+function ProductImages({
   product,
   onClose,
   onImagesUpdated,
@@ -37,9 +41,6 @@ export default function AdminProductImages({
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
-    setSuccess("");
 
     getProductImages(product.id)
       .then((data) => {

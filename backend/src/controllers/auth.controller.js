@@ -1,19 +1,29 @@
 ﻿import { pool } from "../config/database.js";
 import bcrypt from "bcrypt";
 
+const text = (value) => typeof value === "string" ? value.trim() : "";
+const validEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const validPassword = (password) => typeof password === "string" &&
+    password.length > 0 && Buffer.byteLength(password, "utf8") <= 72;
+
 export const register = async (req, res) => {
     try {
-        const firstName = req.body.firstName?.trim();
-        const lastName = req.body.lastName?.trim();
-        const email = req.body.email?.trim().toLowerCase();
-        const phone = req.body.phone?.trim();
-        const password = req.body.password;
+        const firstName = text(req.body?.firstName);
+        const lastName = text(req.body?.lastName);
+        const email = text(req.body?.email).toLowerCase();
+        const phone = text(req.body?.phone);
+        const password = req.body?.password;
 
         if (!firstName || !lastName || !email || !phone || !password) {
             return res.status(400).json({
                 status: "ERROR",
                 message: "All fields are required!"
             });
+        }
+
+        if (firstName.length > 100 || lastName.length > 100 || phone.length > 20 ||
+            !validEmail(email) || !validPassword(password) || password.length < 12) {
+            return res.status(400).json({ status: "ERROR", message: "Provide valid contact details and a password of at least 12 characters (maximum 72 UTF-8 bytes)." });
         }
 
         const existingUser = await pool.query(
@@ -68,8 +78,8 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
 
-        const email = req.body.email?.trim().toLowerCase();
-        const password = req.body.password;
+        const email = text(req.body?.email).toLowerCase();
+        const password = req.body?.password;
 
 
         if (!email || !password) {
@@ -77,6 +87,10 @@ export const login = async (req, res) => {
                 status: "ERROR",
                 message: "Email and password are required!"
             });
+        }
+
+        if (!validEmail(email) || !validPassword(password)) {
+            return res.status(400).json({ status: "ERROR", message: "Invalid sign-in details" });
         }
 
 

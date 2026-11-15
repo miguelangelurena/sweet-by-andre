@@ -38,7 +38,11 @@ export default function ProductCatalog() {
     };
   }, []);
 
-  useEffect(() => { setVisibleCount(8); }, [selectedCategory]);
+  function selectCategory(categoryId) {
+    if (categoryId === selectedCategory) return;
+    setSelectedCategory(categoryId);
+    setVisibleCount(8);
+  }
 
   const categories = useMemo(() => {
     const unique = new Map();
@@ -81,7 +85,7 @@ export default function ProductCatalog() {
         <div className="mb-8 flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            onClick={() => setSelectedCategory("all")}
+            onClick={() => selectCategory("all")}
             aria-pressed={selectedCategory === "all"}
             className={`rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
               selectedCategory === "all"
@@ -96,7 +100,7 @@ export default function ProductCatalog() {
             <button
               key={category.id}
               type="button"
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => selectCategory(category.id)}
               aria-pressed={selectedCategory === category.id}
               className={`rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
                 selectedCategory === category.id

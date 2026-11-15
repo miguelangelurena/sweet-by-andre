@@ -38,9 +38,11 @@ export default function Catalog() {
     return product.is_available && matchesCategory;
   });
 
-  useEffect(() => {
+  function selectCategory(categoryId) {
+    if (categoryId === selectedCategory) return;
+    setSelectedCategory(categoryId);
     setVisibleCount(9);
-  }, [selectedCategory]);
+  }
 
   return (
     <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 sm:py-10">
@@ -81,7 +83,7 @@ export default function Catalog() {
             >
               <button
                 type="button"
-                onClick={() => setSelectedCategory("all")}
+                onClick={() => selectCategory("all")}
                 aria-pressed={selectedCategory === "all"}
                 className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-5 ${
                   selectedCategory === "all"
@@ -96,7 +98,7 @@ export default function Catalog() {
                 <button
                   key={category.id}
                   type="button"
-                  onClick={() => setSelectedCategory(category.id)}
+                  onClick={() => selectCategory(category.id)}
                   aria-pressed={selectedCategory === category.id}
                   className={`min-h-11 shrink-0 rounded-full border whitespace-nowrap px-4 py-2 text-sm transition sm:px-5 ${
                     selectedCategory === category.id

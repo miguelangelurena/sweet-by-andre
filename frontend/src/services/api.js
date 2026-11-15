@@ -50,21 +50,23 @@ export function getAdminProducts() {
 }
 
 export function createProduct(productData) {
-    return apiRequest("/products", {
+    return adminRequest("/products", {
         method: "POST",
         body: JSON.stringify(productData),
     });
 }
 
 export async function uploadProductImage(productId, file) {
+    const token = await getAdminCsrfToken();
     const formData = new FormData();
     formData.append("image", file);
 
     const response = await fetch(
-        `/api/products/${productId}/images/upload`,
+        `${API_URL}/products/${encodeURIComponent(productId)}/images/upload`,
         {
             method: "POST",
             credentials: "include",
+            headers: { "X-CSRF-Token": token },
             body: formData,
         }
     );
@@ -81,14 +83,14 @@ export async function uploadProductImage(productId, file) {
 }
 
 export function updateProduct(productId, productData) {
-    return apiRequest(`/products/${productId}`, {
+    return adminRequest(`/products/${productId}`, {
         method: "PATCH",
         body: JSON.stringify(productData),
     });
 }
 
 export function updateProductAvailability(productId, isAvailable) {
-    return apiRequest(`/products/${productId}/availability`, {
+    return adminRequest(`/products/${productId}/availability`, {
         method: "PATCH",
         body: JSON.stringify({
             is_available: isAvailable,
@@ -102,7 +104,7 @@ export function getProductImages(productId) {
 }
 
 export function setMainProductImage(productId, imageId) {
-    return apiRequest(
+    return adminRequest(
         `/products/${productId}/images/${imageId}`,
         {
             method: "PATCH",
@@ -114,7 +116,7 @@ export function setMainProductImage(productId, imageId) {
 }
 
 export function deleteProductImage(productId, imageId) {
-    return apiRequest(
+    return adminRequest(
         `/products/${productId}/images/${imageId}`,
         {
             method: "DELETE",
@@ -135,7 +137,7 @@ export function getAdminProductOptions(productId) {
 
 // Create a new option (Size, Flavor, Package Size...)
 export function createProductOption(productId, name) {
-    return apiRequest(
+    return adminRequest(
         `/admin/products/${encodeURIComponent(productId)}/options`,
         {
             method: "POST",
@@ -146,7 +148,7 @@ export function createProductOption(productId, name) {
 
 // Update an existing option
 export function updateProductOption(optionId, optionData) {
-    return apiRequest(
+    return adminRequest(
         `/admin/product-options/${encodeURIComponent(optionId)}`,
         {
             method: "PATCH",
@@ -162,7 +164,7 @@ export function updateProductOption(optionId, optionData) {
 
 // Create a value (4", 6", Oreo, Vanilla...)
 export function createProductOptionValue(optionId, value) {
-    return apiRequest(
+    return adminRequest(
         `/admin/product-options/${encodeURIComponent(optionId)}/values`,
         {
             method: "POST",
@@ -173,7 +175,7 @@ export function createProductOptionValue(optionId, value) {
 
 // Update a value or its availability
 export function updateProductOptionValue(valueId, valueData) {
-    return apiRequest(
+    return adminRequest(
         `/admin/product-option-values/${encodeURIComponent(valueId)}`,
         {
             method: "PATCH",
@@ -203,7 +205,7 @@ export function getProductVariants(productId) {
 
 // Create a new variant with its options and price
 export function createProductVariant(productId, variantData) {
-    return apiRequest(
+    return adminRequest(
         `/admin/products/${encodeURIComponent(productId)}/variants`,
         {
             method: "POST",
@@ -214,7 +216,7 @@ export function createProductVariant(productId, variantData) {
 
 // Update variant price, stock, or availability
 export function updateProductVariant(variantId, variantData) {
-    return apiRequest(
+    return adminRequest(
         `/admin/variants/${encodeURIComponent(variantId)}`,
         {
             method: "PATCH",
@@ -272,10 +274,17 @@ export async function startGuestStripeCheckout(orderId) {
 
 // Admin categories: all mutations require session CSRF.
 export function getAdminCategories() { return apiRequest("/admin/categories"); }
-export async function withAdminCsrf(endpoint, { method, body }) {
+async function getAdminCsrfToken() {
     const token = await apiRequest("/cart/csrf-token");
     if (!token?.csrf_token) throw new Error("Session security token unavailable");
-    return apiRequest(endpoint, { method, headers: { "X-CSRF-Token": token.csrf_token }, body: JSON.stringify(body) });
+    return token.csrf_token;
+}
+async function adminRequest(endpoint, options) {
+    const token = await getAdminCsrfToken();
+    return apiRequest(endpoint, { ...options, headers: { ...options.headers, "X-CSRF-Token": token } });
+}
+export function withAdminCsrf(endpoint, { method, body }) {
+    return adminRequest(endpoint, { method, body: JSON.stringify(body) });
 }
 export const createAdminCategory = (data) => withAdminCsrf("/categories", { method: "POST", body: data });
 export const renameAdminCategory = (id, data) => withAdminCsrf(`/categories/${encodeURIComponent(id)}`, { method: "PATCH", body: data });

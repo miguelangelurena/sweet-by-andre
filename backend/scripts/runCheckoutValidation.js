@@ -6,6 +6,7 @@ const cwd = fileURLToPath(new URL("../", import.meta.url));
 const { parsed = {} } = dotenv.config({ path: `${cwd}.env`, quiet: true });
 const files = [
   "hosting.unit.test.js",
+  "auth-security.test.js",
   "production-policy.unit.test.js",
   "production.http.test.js",
   "testInventoryReservation.js",
@@ -32,6 +33,8 @@ const files = [
   "checkout-purchase-flow.http.test.js",
   "refund-service.test.js",
   "refund-workflow.http.test.js",
+  "orderNotifications.unit.test.js",
+  "orderNotifications.integration.test.js",
 ];
 
 // Override only child-process configuration. Never modify the local .env or
@@ -64,6 +67,10 @@ const productionSetup = spawnSync(process.execPath, ["scripts/installProduction.
 if (productionSetup.status !== 0) process.exit(productionSetup.status ?? 1);
 const refundSetup = spawnSync(process.execPath, ["scripts/installRefunds.js"], options);
 if (refundSetup.status !== 0) process.exit(refundSetup.status ?? 1);
+const notificationSetup = spawnSync(process.execPath, ["scripts/installNotifications.js"], options);
+if (notificationSetup.status !== 0) process.exit(notificationSetup.status ?? 1);
+const authSetup = spawnSync(process.execPath, ["scripts/installAuthSecurity.js", "--reset-test-counters"], options);
+if (authSetup.status !== 0) process.exit(authSetup.status ?? 1);
 const result = spawnSync(process.execPath, [
   "--test", "--test-concurrency=1", ...files.map((file) => `tests/${file}`),
 ], options);

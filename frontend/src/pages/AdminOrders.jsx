@@ -1,6 +1,6 @@
 import MinimalSelect from "../components/ui/MinimalSelect";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "../services/api";
 
 const PAGE_SIZE = 8;
@@ -195,11 +195,12 @@ export default function AdminOrders() {
   const requestsVersion = useRef(0);
   const statusInFlight = useRef(false);
   const moreAbort = useRef(null);
+  const refundRequestVersion = useRef(0);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const openerRef = useRef(null);
 
-  function pageUrl(offset, activeFilter) {
+  const pageUrl = useCallback((offset, activeFilter) => {
     const params = new URLSearchParams({
       limit: String(PAGE_SIZE),
       offset: String(offset),
@@ -209,19 +210,34 @@ export default function AdminOrders() {
     if (deliveryWindow !== "all") params.set("delivery_window", deliveryWindow);
     if (workloadOnly) params.set("workload", "active");
     return `/admin/orders?${params.toString()}`;
-  }
+  }, [orderFilter, deliveryWindow, workloadOnly]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const version = ++requestsVersion.current;
-    moreAbort.current?.abort();
+  // Reset dependent UI before rendering a different request, so the previous
+  // order's details or actions cannot appear under the newly selected order.
+  const listKey = JSON.stringify([filter, orderFilter, deliveryWindow, workloadOnly, refreshVersion]);
+  const [previousListKey, setPreviousListKey] = useState(listKey);
+  if (previousListKey !== listKey) {
+    setPreviousListKey(listKey);
     setOrders([]);
     setPagination({ total: 0, has_more: false });
     setLoadingMore(false);
     setLoading(true);
     setError("");
     setMoreError("");
+  }
+  const detailKey = JSON.stringify([selectedId, refreshVersion]);
+  const [previousDetailKey, setPreviousDetailKey] = useState(detailKey);
+  if (previousDetailKey !== detailKey) {
+    setPreviousDetailKey(detailKey);
+    setDetail(null);
+    setDetailError("");
+    setDetailLoading(Boolean(selectedId));
+  }
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const version = ++requestsVersion.current;
+    moreAbort.current?.abort();
     apiRequest(pageUrl(0, filter), { signal: controller.signal })
       .then((data) => {
         if (version !== requestsVersion.current) return;
@@ -242,7 +258,7 @@ export default function AdminOrders() {
       controller.abort();
       moreAbort.current?.abort();
     };
-  }, [filter, orderFilter, deliveryWindow, workloadOnly, refreshVersion]);
+  }, [filter, pageUrl, refreshVersion]);
 
   async function showMoreOrders() {
     if (loading || loadingMore || !pagination.has_more) return;
@@ -280,10 +296,6 @@ export default function AdminOrders() {
   useEffect(() => {
     if (!selectedId) return undefined;
     const controller = new AbortController();
-    setDetail(null);
-    setDetailError("");
-    setDetailLoading(true);
-
     apiRequest(`/admin/orders/${encodeURIComponent(selectedId)}`, {
       signal: controller.signal,
     })
@@ -303,20 +315,16 @@ export default function AdminOrders() {
     return () => controller.abort();
   }, [selectedId, refreshVersion]);
 
-  useEffect(() => {
-    setRefundReview(null);
-    setRefundError("");
-    setRefundLoading(false);
-  }, [selectedId]);
-
   async function loadRefundReview() {
     if (!selectedId || refundLoading) return;
+    const version = ++refundRequestVersion.current;
     setRefundLoading(true);
     setRefundError("");
     try {
       const result = await apiRequest(
         `/admin/orders/${encodeURIComponent(selectedId)}/refund-review`,
       );
+      if (version !== refundRequestVersion.current) return;
       setRefundReview(result.review);
       const review = result.review;
       setDetail(previous => previous?.order?.id === review.order_id
@@ -326,9 +334,10 @@ export default function AdminOrders() {
         ? { ...entry, payment_status: review.payment_status, order_status: review.order_status }
         : entry));
     } catch (err) {
-      setRefundError(err.message || "Could not load refund review.");
+      if (version === refundRequestVersion.current)
+        setRefundError(err.message || "Could not load refund review.");
     } finally {
-      setRefundLoading(false);
+      if (version === refundRequestVersion.current) setRefundLoading(false);
     }
   }
 
@@ -400,6 +409,10 @@ export default function AdminOrders() {
   }, [selectedId]);
 
   function openOrder(id, event) {
+    refundRequestVersion.current += 1;
+    setRefundReview(null);
+    setRefundError("");
+    setRefundLoading(false);
     openerRef.current = event.currentTarget;
     setShowAdditionalInfo(false);
     setStatusError("");
