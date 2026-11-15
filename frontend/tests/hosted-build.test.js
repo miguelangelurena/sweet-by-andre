@@ -29,7 +29,9 @@ test("hosted builds separate production from staging and reject production payme
     // Reuse only this test's own temporary output folder.
     const staging = build("staging", "true");
     assert.equal(staging.status, 0, staging.stderr);
-    assert.equal((await scripts()).includes("Preview environment"), true);
+    const stagingScripts = await scripts();
+    assert.equal(stagingScripts.includes("Preview environment"), true);
+    assert.equal(stagingScripts.includes("Stripe test payments only."), true);
   } finally {
     const actual = await realpath(output), parent = await realpath(tmpdir());
     if (actual.startsWith(`${parent}${sep}`) && resolve(actual) === resolve(output) &&
