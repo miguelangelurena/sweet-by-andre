@@ -1,3 +1,4 @@
+import { installUuidParams } from "../middleware/uuidParams.js";
 
 import express from "express";
 
@@ -18,6 +19,7 @@ import {
 } from "../middleware/sessionCsrf.js";
 
 const router = express.Router();
+installUuidParams(router);
 
 // Obtener el token CSRF de la sesión autenticada.
 router.get(

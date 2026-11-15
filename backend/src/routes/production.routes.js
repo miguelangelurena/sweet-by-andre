@@ -1,3 +1,5 @@
+import { securityError } from "../utils/securityLog.js";
+import { installUuidParams } from "../middleware/uuidParams.js";
 import express from "express";
 import { pool } from "../config/database.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -10,13 +12,14 @@ import {
 } from "../services/production.service.js";
 
 const router = express.Router();
+installUuidParams(router);
 const handle = (fn) => async (req, res) => {
   try {
     res.set("Cache-Control", "no-store");
     await fn(req, res);
   } catch (error) {
     if (!(error instanceof ProductionError))
-      console.error("Production request failed:", error);
+      securityError(error, "Production request failed:");
     res
       .status(error instanceof ProductionError ? error.status : 500)
       .json({

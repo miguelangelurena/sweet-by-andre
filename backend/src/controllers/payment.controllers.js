@@ -1,5 +1,6 @@
 
 import { pool } from "../config/database.js";
+import { securityError } from "../utils/securityLog.js";
 import { stripe } from "../config/stripe.js";
 
 export const createCheckoutSession = async (req, res) => {
@@ -173,13 +174,7 @@ export const createCheckoutSession = async (req, res) => {
     } catch (error) {
         await client.query("ROLLBACK").catch(() => { });
 
-        console.error("Stripe Checkout error:", {
-            message: error.message,
-            type: error.type,
-            code: error.code,
-            statusCode: error.statusCode,
-            sessionCreated
-        });
+        securityError(error, "Legacy Stripe Checkout failed");
 
         return res.status(500).json({
             status: "ERROR",

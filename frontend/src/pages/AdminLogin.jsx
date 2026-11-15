@@ -34,7 +34,7 @@ export default function AdminLogin() {
     <main className="flex min-h-screen items-center justify-center bg-[#FAF7F5] px-6 py-12">
       <div className="w-full max-w-md rounded-2xl border border-[#E7DCD9] bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <a href="#home" className="inline-block">
+          <a href="/" className="inline-block">
             <span className="block font-serif text-4xl text-[#282323]">
               Sweet
             </span>
@@ -113,7 +113,7 @@ export default function AdminLogin() {
         </p>
 
         <a
-          href="#home"
+          href="/"
           className="mt-6 block text-center text-sm text-[#756B69] hover:text-[#B76473]"
         >
           Return to website

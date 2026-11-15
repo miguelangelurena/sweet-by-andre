@@ -1,4 +1,5 @@
 import { pool } from "../config/database.js";
+import { securityError } from "../utils/securityLog.js";
 import { adminRefundsEnabled, reserveOrderRefund, RefundError } from "../services/orderRefund.service.js";
 import { processRefund } from "../services/refund.service.js";
 
@@ -11,7 +12,7 @@ export async function rejectPaidOrder(req, res) {
   try {
     refundRequest = await reserveOrderRefund(pool, id, req.user.id, req.body?.reason);
   } catch (error) {
-    if (!(error instanceof RefundError)) console.error("Reserve refund failed:", error.code ?? error.name);
+    if (!(error instanceof RefundError)) securityError(error, "Reserve refund failed");
     return res.status(error instanceof RefundError ? error.status : 500).json({
       status: "ERROR", message: error instanceof RefundError ? error.message : "Could not register refund request"
     });
@@ -20,7 +21,7 @@ export async function rejectPaidOrder(req, res) {
     await processRefund(refundRequest.id);
   } catch (error) {
     // The request is durable. A timeout never authorizes a second refund key.
-    console.error("Refund requires retry/review:", error.code ?? error.type ?? error.name);
+    securityError(error, "Refund requires retry/review");
     await pool.query("UPDATE refund_requests SET last_error=$2,updated_at=NOW() WHERE id=$1 AND status<>'succeeded'",
       [refundRequest.id, "Refund verification incomplete. Retry the existing request or review in Stripe."]);
   }

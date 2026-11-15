@@ -1,3 +1,4 @@
+import { installUuidParams } from "../middleware/uuidParams.js";
 import express from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
@@ -13,6 +14,7 @@ import {
 } from "../controllers/admin-order.controller.js";
 
 const router = express.Router();
+installUuidParams(router);
 
 router.get("/orders", requireAuth, requireAdmin, getAdminOrders);
 router.get("/orders/:id", requireAuth, requireAdmin, getAdminOrderById);

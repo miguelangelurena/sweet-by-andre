@@ -1,3 +1,4 @@
+import { installUuidParams } from "../middleware/uuidParams.js";
 import express from "express";
 
 import {
@@ -13,6 +14,7 @@ import { requireAdmin } from "../middleware/requireAdmin.js";
 import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
 
 const router = express.Router();
+installUuidParams(router);
 
 router.get("/categories", getCategories);
 router.get("/admin/categories", requireAuth, requireAdmin, getAdminCategories);

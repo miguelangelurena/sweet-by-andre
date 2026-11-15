@@ -174,6 +174,15 @@ test(
       assert.equal(home.status, 200);
       assert.ok((await home.text()).includes('id="root"'));
       assert.equal(home.headers.get("x-robots-tag"), "noindex, nofollow");
+        const menu = await call("/catalog");
+        assert.equal(menu.status, 200);
+        assert.match(await menu.text(), /Dessert Menu in Katy/);
+        assert.equal(menu.headers.get("x-robots-tag"), "noindex, nofollow");
+        const productRedirect = await call(`/products/${seeded.id}`, { redirect: "manual" });
+        assert.equal(productRedirect.status, 301);
+        assert.match(productRedirect.headers.get("location"), new RegExp(`^/products/${seeded.id}/`));
+        assert.match(await (await call("/robots.txt")).text(), /Disallow: \/\n/);
+        assert.equal((await call("/sitemap.xml")).status, 404);
       assert.deepEqual(await (await call("/api/health")).json(), {
         status: "OK",
       });

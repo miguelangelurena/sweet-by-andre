@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 import {
@@ -26,7 +27,8 @@ export const requireGuestCart = async (req, res, next) => {
             SELECT id
             FROM cart
             WHERE guest_token_hash = $1
-              AND user_id IS NULL;
+              AND user_id IS NULL
+              AND created_at > NOW() - INTERVAL '30 days';
             `,
             [tokenHash]
         );
@@ -43,7 +45,7 @@ export const requireGuestCart = async (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error("Error resolving guest cart:", error);
+        securityError(error, "Error resolving guest cart:");
 
         return res.status(500).json({
             status: "ERROR",

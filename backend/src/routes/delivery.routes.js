@@ -1,3 +1,5 @@
+import { requestRateLimit } from "../middleware/requestRateLimit.js";
+import { securityError } from "../utils/securityLog.js";
 import express from "express";
 import { pool } from "../config/database.js";
 import { requireAuth } from "../middleware/requireAuth.js";
@@ -24,7 +26,7 @@ function handle(fn) {
       await fn(req, res);
     } catch (error) {
       if (!(error instanceof DeliveryError))
-        console.error("Delivery request failed:", error);
+        securityError(error, "Delivery request failed:");
       res
         .status(error.status ?? 500)
         .json({
@@ -49,6 +51,7 @@ router.post(
   "/guest/delivery/quote",
   requireGuestCart,
   requireGuestCsrf,
+  requestRateLimit({ action: "delivery-quote", limit: 50, identityLimit: 20 }),
   handle(async (req, res) => {
     const quote = await quoteGuestDelivery(req.cartId, req.body ?? {});
     res.json({

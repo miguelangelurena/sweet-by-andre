@@ -1,4 +1,5 @@
 import ProductImage from "./ProductImage";
+import { productPath } from "../../utils/storefrontRoutes";
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat("en-US", {
@@ -15,7 +16,7 @@ export default function ProductCard({ product, compactOnMobile = true }) {
 
   return (
     <a
-      href={`#product/${product.id}`}
+      href={productPath(product)}
       className={`group relative overflow-hidden rounded-2xl border border-[#E7DCD9] bg-white transition-shadow duration-300 hover:shadow-lg ${compactOnMobile ? "grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:block sm:p-0" : "block"}`}
     >
       <div

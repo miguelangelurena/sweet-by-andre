@@ -6,7 +6,11 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { securityHeaders, requestBoundary, validateJsonBody, handleHttpError } from "./middleware/httpSecurity.js";
+import { requireTrustedOrigin } from "./middleware/trustedOrigin.js";
+import { requestRateLimit } from "./middleware/requestRateLimit.js";
 import { frontendOrigins } from "./config/hosting.js";
+import { createStorefrontRouter } from "./routes/storefront.routes.js";
 
 import { pool } from "./config/database.js";
 
@@ -27,6 +31,14 @@ import productionRouter from "./routes/production.routes.js";
 import { handleStripeWebhook } from "./controllers/stripe-webhook.controllers.js";
 
 const app = express();
+app.disable("x-powered-by");
+app.use(securityHeaders());
+app.use(requestBoundary);
+app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    res.vary("Cookie");
+    next();
+});
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -44,7 +56,7 @@ if (isProduction) {
 // 1. Stripe webhook must receive the original raw body.
 app.post(
     "/api/payments/webhook",
-    express.raw({ type: "application/json" }),
+    express.raw({ type: "application/json", limit: "100kb", inflate: false }),
     handleStripeWebhook
 );
 
@@ -87,11 +99,14 @@ app.use((req, res, next) => {
         });
     }
 
+    if (unsafeMethods.includes(req.method)) return requireTrustedOrigin(req, res, next);
     next();
 });
 
 // 4. Parse request bodies and cookies.
-app.use(express.json({ limit: "100kb" }));
+app.use("/api", requestRateLimit({ action: "api", limit: 1000 }));
+app.use(express.json({ limit: "100kb", inflate: false }));
+app.use(validateJsonBody);
 app.use(cookieParser());
 
 // 5. PostgreSQL session storage.
@@ -109,7 +124,7 @@ app.use(
             httpOnly: true,
             secure: isProduction,
             sameSite: "lax",
-            maxAge: 1000 * 60 * 60 * 24 * 7
+            maxAge: isProduction ? 1000 * 60 * 60 * 8 : 1000 * 60 * 60 * 24 * 7
         }
     })
 );
@@ -128,13 +143,16 @@ app.use("/api", paymentRouter);
 app.use("/api/admin", adminOrdersRouter);
 app.use("/api/admin", adminDashboardRouter);
 app.use("/api", guestCartRoutes);
+app.use("/api", (_req, res) => res.status(404).json({ status: "ERROR", message: "API route not found" }));
 
 if (process.env.SERVE_FRONTEND === "true") {
     const frontendDist = fileURLToPath(new URL("../../frontend/dist/", import.meta.url));
     if (!existsSync(`${frontendDist}/index.html`)) throw new Error("Build the frontend before enabling SERVE_FRONTEND");
-    app.use("/api", (_req, res) => res.status(404).json({ status: "ERROR", message: "API route not found" }));
-    app.use(express.static(frontendDist));
-    app.get(/.*/, (_req, res) => res.sendFile("index.html", { root: frontendDist }));
+    app.get("/index.html", (req, res) => res.redirect(301, "/" + req.url.slice(req.path.length)));
+    app.use(express.static(frontendDist, { index: false }));
+    app.use(createStorefrontRouter({ indexPath: `${frontendDist}/index.html` }));
 }
+
+app.use(handleHttpError);
 
 export default app;

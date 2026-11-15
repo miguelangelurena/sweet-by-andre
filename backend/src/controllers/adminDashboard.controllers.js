@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 /** Admin-only, read-only summary. Revenue is captured-order gross, NOT net payouts. */
@@ -23,7 +24,7 @@ export async function getAdminDashboard(req, res) {
     ]);
     return res.json({ status: "GOOD", summary: { ...orders.rows[0], ...products.rows[0] }, recent_orders: recent.rows });
   } catch (error) {
-    console.error("Admin dashboard failed:", error);
+    securityError(error, "Admin dashboard failed:");
     return res.status(500).json({ status: "ERROR", message: "Could not load dashboard" });
   }
 }

@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 const SLUGS = new Set(["valentines", "thanksgiving", "christmas"]);
@@ -19,7 +20,7 @@ export async function getSeasonalCollections(_req, res) {
     `);
     return res.json({ status: "GOOD", collections: result.rows });
   } catch (error) {
-    console.error("Public seasonal collections error:", error);
+    securityError(error, "Public seasonal collections error:");
     return res.status(500).json({ status: "ERROR", message: "Could not load seasonal collections" });
   }
 }
@@ -37,7 +38,7 @@ export async function getAdminSeasonalCollections(_req, res) {
     `);
     return res.json({ status: "GOOD", collections: result.rows });
   } catch (error) {
-    console.error("Admin seasonal collections error:", error);
+    securityError(error, "Admin seasonal collections error:");
     return res.status(500).json({ status: "ERROR", message: "Could not load seasonal collections" });
   }
 }
@@ -77,7 +78,7 @@ export async function updateAdminSeasonalCollection(req, res) {
     return res.json({ status: "GOOD", collection: { ...updated.rows[0], product_ids: ids } });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
-    console.error("Update seasonal collection error:", error);
+    securityError(error, "Update seasonal collection error:");
     return res.status(500).json({ status: "ERROR", message: "Could not update collection" });
   } finally {
     client.release();

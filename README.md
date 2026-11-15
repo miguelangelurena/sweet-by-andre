@@ -67,6 +67,9 @@ La suite de checkout requiere una base separada llamada `sweet_by_andre_test` co
 - [Rechazos y reembolsos](backend/tests/REFUND_VALIDATION.md).
 - [Activación y validación de correos](backend/tests/NOTIFICATIONS_VALIDATION.md).
 - [Protección del acceso administrativo](backend/tests/AUTH_SECURITY_VALIDATION.md).
+- [Revisión de seguridad y riesgos pendientes](SECURITY_REVIEW.md).
+- [SEO, indexación y preparación para Google](SEO_SETUP.md).
+- [Mantenimiento y reporte de vulnerabilidades](SECURITY.md).
 - [Respaldos y recuperación](BACKUPS.md).
 - [Preparación para producción y entrega](PRODUCTION_READINESS.md).
 - [Configuración y arranque de producción](PRODUCTION_SETUP.md).
@@ -79,7 +82,7 @@ La suite de checkout requiere una base separada llamada `sweet_by_andre_test` co
 ## Pendientes para la entrega
 
 - Completar Brevo, autenticar `sweetsbyandre.com` y verificar correos con destinatarios controlados.
-- Completar la revisión de seguridad y comprobar los cambios del panel en navegador.
+- Validar en staging el endurecimiento de seguridad, configurar las protecciones externas y completar la aceptación del panel; ver [revisión de seguridad](SECURITY_REVIEW.md).
 - Preparar el entorno de producción separado, con respaldos, restauración comprobada y monitoreo.
 - Confirmar con la dueña impuestos, políticas comerciales, datos de contacto y requisitos para operar. Actualmente el cálculo de impuestos del pedido es cero.
 - Preparar y validar la configuración de pagos reales. Los reembolsos administrativos actuales están limitados a claves de prueba.

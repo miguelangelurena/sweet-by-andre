@@ -21,6 +21,7 @@
     "notifications:status": "node scripts/checkNotifications.js",
     "admin:reset-password": "node scripts/resetAdminPassword.js",
     "catalog:audit": "node scripts/auditPublicCatalog.js",
+    "security:hygiene": "node scripts/checkSecurityHygiene.js",
     "db:staging": "node scripts/initializeStaging.js",
     "db:deploy-production": "node scripts/initializeProduction.js",
     "start:production": "node scripts/startProduction.js",
@@ -42,6 +43,7 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "file-type": "^22.2.0",
+    "helmet": "^8.3.0",
     "multer": "^2.5.0",
     "pg": "^8.23.0",
     "stripe": "^23.0.0"

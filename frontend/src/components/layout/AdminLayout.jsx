@@ -55,7 +55,7 @@ export default function AdminLayout({ children }) {
           })}
         </nav>
         <div className="space-y-3 p-4">
-          <a href="#home" className="block text-sm text-[#756B69] hover:text-[#B76473]">View website</a>
+          <a href="/" className="block text-sm text-[#756B69] hover:text-[#B76473]">View website</a>
           <button type="button" onClick={signOut} disabled={signingOut}
             className="min-h-11 w-full rounded-lg border border-[#E7DCD9] px-4 py-2 text-left text-sm font-semibold text-[#756B69] hover:bg-[#FAF0F1] disabled:opacity-50">
             {signingOut ? "Signing out..." : "Sign out"}

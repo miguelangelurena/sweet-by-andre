@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { getRefundReview } from "../services/refundReview.service.js";
 import { cancelUnpaidOrder } from "../services/cancelUnpaidOrder.service.js";
 import { transitionPaidOrder } from "../services/adminOrderWorkflow.service.js";
@@ -70,7 +71,7 @@ export const getAdminOrders = async (req, res) => {
               has_more: paginated ? offset + result.rows.length < total : false }
         });
     } catch (error) {
-        console.error("Get admin orders error:", error);
+        securityError(error, "Get admin orders error:");
         return res.status(500).json({ status: "ERROR", message: "Could not retrieve orders" });
     }
 };
@@ -112,7 +113,7 @@ export const getAdminOrderById = async (req, res) => {
             items: itemsResult.rows
         });
     } catch (error) {
-        console.error("Get admin order details error:", error);
+        securityError(error, "Get admin order details error:");
 
         return res.status(500).json({
             status: "ERROR",
@@ -151,7 +152,7 @@ export const acceptAdminOrder = async (req, res) => {
             order: result.rows[0]
         });
     } catch (error) {
-        console.error("Accept admin order error:", error);
+        securityError(error, "Accept admin order error:");
 
         return res.status(500).json({
             status: "ERROR",
@@ -215,7 +216,7 @@ export const advanceAdminOrderStatus = async (req, res) => {
             order: result.order
         });
     } catch (error) {
-        console.error("Advance order status error:", error);
+        securityError(error, "Advance order status error:");
         return res.status(500).json({
             status: "ERROR",
             message: "Could not update order status"
@@ -239,7 +240,7 @@ export const cancelUnpaidAdminOrder = async (req, res) => {
         }
         return res.status(200).json({ status: "GOOD", message: "Unpaid order cancelled", order });
     } catch (error) {
-        console.error("Cancel unpaid order error:", error);
+        securityError(error, "Cancel unpaid order error:");
         return res.status(500).json({ status: "ERROR", message: "Could not cancel order" });
     }
 };
@@ -256,7 +257,7 @@ export const reviewAdminOrderRefund = async (req, res) => {
     if (!review) return res.status(404).json({status:"ERROR",message:"Order not found"});
     return res.status(200).json({status:"GOOD",review});
   } catch (error) {
-    console.error("Refund review error:", error);
+    securityError(error, "Refund review error:");
     return res.status(500).json({status:"ERROR",message:"Could not inspect refund status"});
   }
 };

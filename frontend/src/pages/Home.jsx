@@ -1,10 +1,10 @@
 ﻿import SeasonalCollections from "../components/products/SeasonalCollections";
 import OurStory from "../components/home/OurStory";
-import heroDessert from "../assets/home/reference-dessert.jpg";
-import heroDessertCutout from "../assets/home/hero-dessert-cutout.png";
-import miniCheesecakes from "../assets/home/mini-cheesecakes-strawberry.jpg";
-import miniFlans from "../assets/home/mini-flans.jpg";
-import creamDessert from "../assets/home/cream-dessert.jpg";
+import heroDessert from "../assets/home/reference-dessert.webp";
+import heroDessertCutout from "../assets/home/hero-dessert-cutout.webp";
+import miniCheesecakes from "../assets/home/mini-cheesecakes-strawberry.webp";
+import miniFlans from "../assets/home/mini-flans.webp";
+import creamDessert from "../assets/home/cream-dessert.webp";
 
 // Design previews: "layered", "transparent", or "photo" (original arched photo).
 const HERO_STYLE = "layered";
@@ -67,11 +67,11 @@ export default function Home() {
             </span>
           </h1>
           <p className="mt-7 max-w-lg text-lg leading-8 text-[#786962]">
-            Handcrafted desserts inspired by the flavors and traditions of
-            Venezuela, made to turn every moment into something special.
+            Handcrafted Venezuelan desserts in Katy, Texas, inspired by cherished
+            traditions and made for your sweetest moments.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-5">
-            <a href="#catalog" className="brand-button w-full sm:w-auto">
+            <a href="/catalog" className="brand-button w-full sm:w-auto">
               Explore our menu
             </a>
             <a
@@ -105,6 +105,8 @@ export default function Home() {
             src={USE_CUTOUT ? heroDessertCutout : heroDessert}
             alt="A cream cake topped with strawberries, blueberries and delicate white flowers"
             fetchPriority="high"
+            width="1200"
+            height="1299"
             className={
               USE_CUTOUT
                 ? "aspect-[0.85] w-full object-contain p-3 drop-shadow-[0_18px_20px_rgba(107,71,60,0.12)]"
@@ -168,7 +170,7 @@ export default function Home() {
             {categories.map((category) => (
               <a
                 key={category.title}
-                href="#catalog"
+                href="/catalog"
                 className="group overflow-hidden rounded-t-[3.5rem] rounded-b-3xl border border-[#EADBD4] bg-[#FFFDFA] transition-shadow hover:shadow-lg hover:shadow-[#6B473C]/5"
               >
                 <div className="aspect-[4/3] overflow-hidden bg-[#EEE0D9]">
@@ -176,6 +178,7 @@ export default function Home() {
                     src={category.image}
                     alt={category.title}
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition duration-500 motion-safe:group-hover:scale-105"
                   />
                 </div>

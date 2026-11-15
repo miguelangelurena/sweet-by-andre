@@ -1,0 +1,91 @@
+name: Security and application checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-disposable-password
+          POSTGRES_DB: sweet_by_andre_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      NODE_ENV: test
+      DATABASE_URL: ""
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: sweet_by_andre_test
+      DB_USER: postgres
+      DB_PASSWORD: ci-only-disposable-password
+      SESSION_SECRET: ci-only-session-secret-no-business-credentials
+      CSRF_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      STRIPE_SECRET_KEY: sk_test_ci_fixture
+      ENABLE_STRIPE_CHECKOUT: "false"
+      ENABLE_ADMIN_REFUNDS: "false"
+      ENABLE_TRANSACTIONAL_NOTIFICATIONS: "false"
+      ENABLE_TRANSACTIONAL_SMS: "false"
+      FRONTEND_URL: http://localhost:5173
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix backend
+      - run: npm ci --prefix frontend
+      - name: Known dependency advisories
+        run: |
+          npm audit --audit-level=moderate
+          npm audit --prefix backend --audit-level=moderate
+          npm audit --prefix frontend --audit-level=moderate
+      - run: npm run security:hygiene --prefix backend -- --history
+      - name: Frontend checks
+        run: |
+          npm run lint --prefix frontend
+          npm run build --prefix frontend
+          npm run test:catalog --prefix frontend
+          npm run test:hosting --prefix frontend
+          npm run test:seo --prefix frontend
+      - name: Create disposable test schema
+        working-directory: backend
+        run: |
+          node --input-type=module <<'JS'
+          import { readFile } from 'node:fs/promises';
+          import { Pool } from 'pg';
+          const pool = new Pool({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
+          try { await pool.query(await readFile('database/bootstrap.sql', 'utf8')); }
+          finally { await pool.end(); }
+          JS
+      - run: npm run test:checkout --prefix backend
+      - run: npm run test:staging --prefix backend
+      - run: npm run test:deployment --prefix backend

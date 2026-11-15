@@ -7,9 +7,9 @@ export default function Header() {
   const [cartCount, setCartCount] = useState(0);
 
   const links = [
-    { label: "Home", href: "/#home" },
-    { label: "Menu", href: "/#menu" },
-    { label: "Seasonal", href: "/#seasonal" },
+    { label: "Home", href: "/" },
+    { label: "Menu", href: "/catalog" },
+    { label: "Seasonal", href: "/seasonal" },
     { label: "Our Story", href: "/#about" },
     { label: "Contact", href: "/#contact" },
   ];
@@ -67,7 +67,7 @@ export default function Header() {
   return (
     <header className="border-b border-[#EADBD4] bg-[#FBF5F0]">
       <div className="mx-auto flex max-w-[1228px] items-center justify-between gap-3 px-4 py-6 sm:px-6">
-        <a href="/#home" className="flex items-center gap-2 sm:gap-3" aria-label="Sweet by Andre home">
+        <a href="/" className="flex items-center gap-2 sm:gap-3" aria-label="Sweet by Andre home">
           <img src="/favicon.svg" width="48" height="48" alt="" className="h-9 w-9 rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl" />
           <span>
             <span className="block font-serif text-lg leading-tight font-medium text-[#49332F] sm:text-3xl">Sweet by Andre</span>

@@ -231,7 +231,7 @@ export default function ProductDetail({ productId }) {
         <p role="alert" className="text-red-700">
           {error || "Product not found."}
         </p>
-        <a href="#catalog" className="mt-5 inline-block text-[#B76473]">
+        <a href="/catalog" className="mt-5 inline-block text-[#B76473]">
           Back to catalog
         </a>
       </main>
@@ -245,7 +245,7 @@ export default function ProductDetail({ productId }) {
     (madeToOrder || Number(selectedVariant.stock) > 0);
   const maxQuantity = inStock
     ? madeToOrder
-      ? Number.MAX_SAFE_INTEGER
+      ? 1000
       : Math.floor(Number(selectedVariant.stock))
     : 0;
   const subtotal = selectedVariant
@@ -264,7 +264,7 @@ export default function ProductDetail({ productId }) {
     <main className="min-h-screen bg-[#FAF7F5] px-4 py-6 sm:px-6 lg:py-8">
       <div className="mx-auto max-w-5xl">
         <a
-          href="#catalog"
+          href="/catalog"
           className="mb-4 inline-flex min-h-11 items-center text-sm font-medium text-[#B76473] hover:underline"
         >
           Back to our menu
@@ -279,6 +279,7 @@ export default function ProductDetail({ productId }) {
               <ProductImage
                 src={images[selectedImage]?.image_url}
                 alt={product.name}
+                  fetchPriority="high"
                 className="h-full w-full object-cover"
                 fallback="Sweet by Andre"
                 fallbackClassName="flex h-full items-center justify-center font-serif text-3xl italic text-[#B76473]"
@@ -454,7 +455,7 @@ export default function ProductDetail({ productId }) {
                     {cartMessage}
                   </p>
                   <a
-                    href="#cart"
+                    href="/#cart"
                     className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-[#9E4F60] underline"
                   >
                     View cart &amp; continue

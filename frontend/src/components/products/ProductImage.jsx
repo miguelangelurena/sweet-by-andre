@@ -9,6 +9,10 @@ function ImageContent({
   alt = "",
   className,
   loading,
+  decoding = "async",
+  fetchPriority,
+  width,
+  height,
   fallback = "Photo coming soon",
   fallbackClassName = "flex h-full w-full items-center justify-center px-3 text-center text-sm text-[#B76473]",
 }) {
@@ -30,6 +34,10 @@ function ImageContent({
       alt={alt}
       className={className}
       loading={loading}
+      decoding={decoding}
+      fetchPriority={fetchPriority}
+      width={width}
+      height={height}
       onError={() => setFailed(true)}
     />
   );

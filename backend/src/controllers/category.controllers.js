@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 export const getCategories = async (req, res) => {
@@ -17,7 +18,7 @@ export const getCategories = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "category.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -78,7 +79,7 @@ export const createCategory = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "category.controllers.js");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -169,7 +170,7 @@ export const updateCategory = async (req, res) => {
             });
         }
 
-        console.error(error);
+        securityError(error, "category.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -215,7 +216,7 @@ export const updateCategoryStatus = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "category.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -237,7 +238,7 @@ export const getAdminCategories = async (_req, res) => {
     `);
     return res.json({ status: "GOOD", categories: result.rows });
   } catch (error) {
-    console.error("Admin categories error:", error);
+    securityError(error, "Admin categories error:");
     return res.status(500).json({ status: "ERROR", message: "Could not load categories" });
   }
 };

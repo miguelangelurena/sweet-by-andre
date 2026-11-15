@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const HEADER = "X-CSRF-Token";
@@ -17,7 +18,7 @@ export const getSessionCsrfToken = (req, res) => {
     // Persist the token before sending it to the browser.
     req.session.save((error) => {
         if (error) {
-            console.error("Error saving CSRF token:", error);
+            securityError(error, "Error saving CSRF token:");
 
             return res.status(500).json({
                 status: "ERROR",

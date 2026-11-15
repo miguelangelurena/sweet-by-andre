@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 
 import {
     createHmac,
@@ -52,7 +53,7 @@ export const getGuestCsrfToken = (req, res) => {
         });
 
     } catch (error) {
-        console.error("CSRF token generation failed:", error);
+        securityError(error, "CSRF token generation failed:");
 
         return res.status(500).json({
             status: "ERROR",
@@ -104,7 +105,7 @@ export const requireGuestCsrf = (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error("CSRF validation failed:", error);
+        securityError(error, "CSRF validation failed:");
 
         return res.status(500).json({
             status: "ERROR",

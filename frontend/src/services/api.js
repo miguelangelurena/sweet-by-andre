@@ -102,7 +102,7 @@ export function updateProductAvailability(productId, isAvailable) {
 
 
 export function getProductImages(productId) {
-    return apiRequest(`/products/${productId}/images`);
+    return apiRequest(`/admin/products/${encodeURIComponent(productId)}/images`);
 }
 
 export function setMainProductImage(productId, imageId) {

@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   if (env.VITE_APP_ENV === "production" && env.VITE_ENABLE_STRIPE_CHECKOUT === "true")
     throw new Error("Production checkout remains disabled until the live-payment rollout is validated");
   return {
+  build: { manifest: true },
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,

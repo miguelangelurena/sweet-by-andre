@@ -1,14 +1,15 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validUuid = (value) => typeof value === "string" && UUID_RE.test(value);
-const validQuantity = (value) => Number.isSafeInteger(value) && value > 0;
+const validQuantity = (value) => Number.isSafeInteger(value) && value > 0 && value <= 1000;
 const rollback = async (client) => {
     try { await client.query("ROLLBACK"); }
-    catch (error) { console.error("Rollback failed:", error); }
+    catch (error) { securityError(error, "Rollback failed:"); }
 };
 const serverError = (res, error) => {
-    console.error(error);
+    securityError(error, "cart.controllers.js");
     return res.status(500).json({ status: "ERROR", message: "Internal server error" });
 };
 const fail = (res, code, message) => res.status(code).json({ status: "ERROR", message });
@@ -95,6 +96,10 @@ export const addCartItem = async (req, res) => {
         if (!cartResult) { await rollback(client); return fail(res, 401, "Cart authentication required"); }
         if (!cartResult.rowCount) { await rollback(client); return fail(res, 404, "Cart not found. Create your cart first."); }
         const cartId = cartResult.rows[0].id;
+        const lines = await client.query(`SELECT COUNT(*)::int AS count,
+          COUNT(*) FILTER (WHERE variant_id=$2 AND notes IS NOT DISTINCT FROM $3)::int AS matching
+          FROM cart_items WHERE cart_id=$1`, [cartId, variant_id, normalizedNotes]);
+        if (lines.rows[0].count >= 100 && !lines.rows[0].matching) { await rollback(client); return fail(res, 409, "Cart has reached its item limit. Contact the bakery for large orders."); }
         const variantResult = await loadVariant(client, variant_id);
         if (!variantResult.rowCount) { await rollback(client); return fail(res, 404, "Variant not found"); }
         const variant = variantResult.rows[0];
@@ -105,6 +110,9 @@ export const addCartItem = async (req, res) => {
             SELECT COALESCE(SUM(quantity), 0)::integer AS quantity
             FROM cart_items WHERE cart_id = $1 AND variant_id = $2
         `, [cartId, variant_id]);
+        if (Number(quantityResult.rows[0].quantity) + quantity > 1000) {
+            await rollback(client); return fail(res, 400, "At most 1000 units per variant are allowed in a cart");
+        }
         if (variant.inventory_mode === "stock" && Number(quantityResult.rows[0].quantity) + quantity > variant.stock) {
             await rollback(client);
             return fail(res, 409, `Only ${variant.stock} units are available for this variant`);
@@ -198,6 +206,9 @@ export const updateCartItem = async (req, res) => {
             SELECT COALESCE(SUM(quantity), 0)::integer AS quantity
             FROM cart_items WHERE cart_id = $1 AND variant_id = $2 AND id <> $3
         `, [cartId, variantId, id]);
+        if (Number(otherItemsResult.rows[0].quantity) + quantity > 1000) {
+            await rollback(client); return fail(res, 400, "At most 1000 units per variant are allowed in a cart");
+        }
         if (variantResult.rows[0].inventory_mode === "stock" && Number(otherItemsResult.rows[0].quantity) + quantity > variantResult.rows[0].stock) {
             await rollback(client);
             return fail(res, 409, `Only ${variantResult.rows[0].stock} units are available for this variant`);

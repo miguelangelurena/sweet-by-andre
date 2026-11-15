@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { applyRefundUpdate, RefundError } from "../services/orderRefund.service.js";
 
 import { pool } from "../config/database.js";
@@ -34,15 +35,16 @@ export const handleStripeWebhook = async (req, res) => {
             webhookSecret
         );
     } catch (error) {
-        console.error(
-            "Invalid Stripe webhook signature:",
-            error.message
-        );
+        securityError(error, "Invalid Stripe webhook signature");
 
         return res.status(400).send(
             "Invalid webhook signature"
         );
     }
+
+    if (["staging", "production"].includes(process.env.APP_ENV) &&
+        event.livemode !== (process.env.APP_ENV === "production"))
+        return res.status(400).send("Webhook environment mismatch");
 
     console.log("Stripe webhook received:", {
         eventId: event.id,
@@ -162,10 +164,7 @@ export const handleStripeWebhook = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "Stripe webhook processing failed:",
-            error
-        );
+        securityError(error, "Stripe webhook processing failed:");
 
         // Returning 500 allows Stripe to retry
         // webhook delivery.

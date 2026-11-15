@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from '../config/database.js';
 
 export const health = async (req, res) => {
@@ -20,7 +21,7 @@ export const health = async (req, res) => {
             response: result.rows[0]
         });
     } catch (error) {
-        console.error(error);
+        securityError(error, "health.controllers.js");
 
         res.status(500).json({
             status: "ERROR",

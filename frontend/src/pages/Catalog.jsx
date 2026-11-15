@@ -53,11 +53,12 @@ export default function Catalog() {
           </span>
 
           <h1 className="mt-2 font-serif text-3xl text-[#282323] sm:mt-3 sm:text-4xl">
-            Explore Our Menu
+            Dessert Menu in Katy, Texas
           </h1>
 
           <p className="mt-2 max-w-xl text-sm leading-6 text-[#796D6A] sm:mx-auto sm:mt-3 sm:text-base sm:leading-7">
-            Discover our handcrafted desserts, made for your sweetest moments.
+            Explore our handcrafted Venezuelan desserts. Order at least 48 hours
+            ahead for pickup or delivery in Katy and Houston, subject to availability.
           </p>
         </header>
 

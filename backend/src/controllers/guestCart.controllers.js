@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 import {
@@ -22,7 +23,9 @@ export const createGuestCart = async (req, res) => {
                 `
                 SELECT id, created_at
                 FROM cart
-                WHERE guest_token_hash = $1;
+                WHERE guest_token_hash = $1
+                  AND user_id IS NULL
+                  AND created_at > NOW() - INTERVAL '30 days';
                 `,
                 [tokenHash]
             );
@@ -67,7 +70,7 @@ export const createGuestCart = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error creating guest cart:", error);
+        securityError(error, "Error creating guest cart:");
 
         return res.status(500).json({
             status: "ERROR",
@@ -188,7 +191,7 @@ export const getGuestCart = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error retrieving guest cart:", error);
+        securityError(error, "Error retrieving guest cart:");
 
         return res.status(500).json({
             status: "ERROR",

@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 ﻿import { pool } from "../config/database.js";
 import bcrypt from "bcrypt";
 import { credentialVersion } from "../services/authCredentials.js";
@@ -6,6 +7,8 @@ const text = (value) => typeof value === "string" ? value.trim() : "";
 const validEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validPassword = (password) => typeof password === "string" &&
     password.length > 0 && Buffer.byteLength(password, "utf8") <= 72;
+// A real bcrypt cost-12 hash ensures unknown emails still perform password work.
+const dummyPasswordHash = await bcrypt.hash("not-an-account-password", 12);
 
 export const register = async (req, res) => {
     try {
@@ -67,7 +70,7 @@ export const register = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "auth.controller.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -104,34 +107,22 @@ export const login = async (req, res) => {
         );
 
 
-        if (result.rows.length === 0 || !credentialVersion(result.rows[0].password_hash)) {
-            return res.status(401).json({
-                status: "ERROR",
-                message: "Invalid email or password"
-            });
-        }
-
-
         const user = result.rows[0];
-
-        const passwordMatches = await bcrypt.compare(
-            password,
-            user.password_hash
-        );
-
-
-        if (!passwordMatches) {
+        const passwordMatches = await bcrypt.compare(password, user?.password_hash || dummyPasswordHash);
+        if (!user || !credentialVersion(user.password_hash) || !passwordMatches) {
             return res.status(401).json({
                 status: "ERROR",
                 message: "Invalid email or password"
             });
         }
+
+
 
 
         req.session.regenerate((err) => {
 
             if (err) {
-                console.error(err);
+                securityError(err, "auth.controller.js");
                 return res.status(500).json({
                     status: "ERROR",
                     message: "Internal server error"
@@ -140,6 +131,8 @@ export const login = async (req, res) => {
 
             req.session.userId = user.id;
             req.session.credentialVersion = credentialVersion(user.password_hash);
+            req.session.authenticatedAt = Date.now();
+            req.session.lastSeenAt = req.session.authenticatedAt;
 
 
             return res.status(200).json({
@@ -149,7 +142,7 @@ export const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "auth.controller.js");
         return res.status(500).json({
             status: "ERROR",
             message: "Internal server error"
@@ -189,7 +182,7 @@ export const getMe = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "auth.controller.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -201,7 +194,7 @@ export const getMe = async (req, res) => {
 export const logout = (req, res) => {
     req.session.destroy((error) => {
         if (error) {
-            console.error(error);
+            securityError(error, "auth.controller.js");
 
             return res.status(500).json({
                 status: "ERROR",

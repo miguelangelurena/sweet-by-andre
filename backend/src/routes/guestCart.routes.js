@@ -1,5 +1,7 @@
+import { installUuidParams } from "../middleware/uuidParams.js";
 
 import express from "express";
+import { requestRateLimit } from "../middleware/requestRateLimit.js";
 
 import {
     createGuestCart,
@@ -30,11 +32,13 @@ import { createCheckoutV2 } from "../controllers/checkoutV2.controllers.js";
 import { requireCheckoutOrder } from "../middleware/requireCheckoutOrder.js";
 
 const router = express.Router();
+installUuidParams(router);
 
 // Create or recover a guest cart.
 router.post(
     "/guest/cart",
     requireTrustedOrigin,
+    requestRateLimit({ action: "guest-cart", limit: 30 }),
     createGuestCart
 );
 
@@ -90,6 +94,7 @@ router.post(
     "/guest/orders",
     requireGuestCart,
     requireGuestCsrf,
+    requestRateLimit({ action: "order", limit: 60, identityLimit: 10 }),
     createOrder
 );
 
@@ -103,6 +108,7 @@ router.post(
     "/guest/payments/checkout",
     requireGuestCart,
     requireGuestCsrf,
+    requestRateLimit({ action: "checkout", limit: 60, identityLimit: 20 }),
     requireCheckoutOrder,
     createCheckoutV2
 );

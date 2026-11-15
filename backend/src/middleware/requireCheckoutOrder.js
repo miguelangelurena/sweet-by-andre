@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 
 import { pool } from "../config/database.js";
 
@@ -85,10 +86,7 @@ export const requireCheckoutOrder = async (req, res, next) => {
         return next();
 
     } catch (error) {
-        console.error(
-            "Checkout order authorization failed:",
-            error
-        );
+        securityError(error, "Checkout order authorization failed:");
 
         return res.status(500).json({
             status: "ERROR",

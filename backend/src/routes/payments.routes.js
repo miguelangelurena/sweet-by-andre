@@ -1,3 +1,4 @@
+import { requestRateLimit } from "../middleware/requestRateLimit.js";
 
 import express from "express";
 
@@ -27,6 +28,7 @@ export function createPaymentsRouter({
     router.post(
         "/payments/checkout",
         ...requireCheckoutIdentity,
+        requestRateLimit({ action: "checkout", limit: 60, identityLimit: 20 }),
         requireCheckoutOrder,
         checkoutController
     );

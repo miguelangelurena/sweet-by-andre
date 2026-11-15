@@ -1,3 +1,4 @@
+import { requestRateLimit } from "../middleware/requestRateLimit.js";
 
 import express from "express";
 
@@ -23,6 +24,7 @@ const router = express.Router();
 router.post(
     "/orders",
     ...requireCheckoutIdentity,
+    requestRateLimit({ action: "order", limit: 60, identityLimit: 10 }),
     createOrder
 );
 

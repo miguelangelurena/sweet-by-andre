@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:hosting": "node --test tests/hosted-build.test.js",
     "test:catalog": "node --test tests/product-variants.test.js",
+    "test:seo": "node --test tests/storefront-routes.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

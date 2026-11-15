@@ -47,6 +47,7 @@ export function stripeSecret(env = process.env) {
 }
 
 export function validateProductionRuntime(env = process.env) {
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED === "0") throw new Error("Hosted runtime refuses disabled TLS certificate verification");
   if (env.APP_ENV !== "production" || env.NODE_ENV !== "production")
     throw new Error("Production requires APP_ENV=production and NODE_ENV=production");
   if (env.SERVE_FRONTEND !== "true") throw new Error("Production requires SERVE_FRONTEND=true");
@@ -69,6 +70,7 @@ export function validateProductionRuntime(env = process.env) {
 }
 
 export function validateStagingRuntime(env = process.env) {
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED === "0") throw new Error("Hosted runtime refuses disabled TLS certificate verification");
   if (env.APP_ENV !== "staging")
     throw new Error("Staging setup requires APP_ENV=staging");
   if (typeof env.SESSION_SECRET !== "string" || env.SESSION_SECRET.length < 32)

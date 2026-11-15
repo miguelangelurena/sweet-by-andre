@@ -7,7 +7,11 @@ const { parsed = {} } = dotenv.config({ path: `${cwd}.env`, quiet: true });
 const files = [
   "hosting.unit.test.js",
   "auth-security.test.js",
+  "auth-flow.test.js",
   "admin-access-recovery.test.js",
+  "security-hardening.test.js",
+  "security-hygiene.unit.test.js",
+  "storefront-seo.test.js",
   "production-policy.unit.test.js",
   "production.http.test.js",
   "testInventoryReservation.js",

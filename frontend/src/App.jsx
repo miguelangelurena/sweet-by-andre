@@ -1,27 +1,31 @@
-import { useEffect, useState } from "react";
+import { lazy, useEffect, useState } from "react";
 
 import PublicLayout from "./components/layout/PublicLayout";
 import PreviewBanner from "./components/layout/PreviewBanner";
 import Home from "./pages/Home";
 import Catalog from "./pages/Catalog";
-import AdminProducts from "./pages/AdminProducts";
-import AdminOrders from "./pages/AdminOrders";
+const AdminProducts = lazy(() => import("./pages/AdminProducts"));
+const AdminOrders = lazy(() => import("./pages/AdminOrders"));
 import AdminGuard from "./components/auth/AdminGuard";
-import AdminLogin from "./pages/AdminLogin";
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 import AdminLayout from "./components/layout/AdminLayout";
 import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import PaymentResult from "./pages/PaymentResult";
-import AdminSeasonal from "./pages/AdminSeasonal";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminDelivery from "./pages/AdminDelivery";
-import AdminProduction from "./pages/AdminProduction";
+const Cart = lazy(() => import("./pages/Cart"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const PaymentResult = lazy(() => import("./pages/PaymentResult"));
+const AdminSeasonal = lazy(() => import("./pages/AdminSeasonal"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminDelivery = lazy(() => import("./pages/AdminDelivery"));
+const AdminProduction = lazy(() => import("./pages/AdminProduction"));
 import SeasonalCollections from "./components/products/SeasonalCollections";
+import { legacyPublicPath, productIdFromPath } from "./utils/storefrontRoutes";
+import usePageMetadata from "./components/layout/PageMetadata";
+import NotFound from "./pages/NotFound";
 
 export default function App() {
   const paymentPath = window.location.pathname;
   const [hash, setHash] = useState(window.location.hash);
+  usePageMetadata(hash, paymentPath);
 
   useEffect(() => {
     const isPageRoute =
@@ -48,7 +52,9 @@ export default function App() {
     } else if (["#home", "#menu", "#about", "#contact"].includes(hash)) {
       // The hash can mount Home from another page; scroll after it renders.
       const frame = requestAnimationFrame(() => {
-        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "auto" });
+        document
+          .getElementById(hash.slice(1))
+          ?.scrollIntoView({ behavior: "auto" });
       });
       return () => cancelAnimationFrame(frame);
     }
@@ -56,6 +62,11 @@ export default function App() {
 
   useEffect(() => {
     const handleHashChange = () => {
+      const destination = legacyPublicPath(window.location.hash);
+      if (destination) {
+        window.location.replace(destination + window.location.search);
+        return;
+      }
       setHash(window.location.hash);
     };
 
@@ -68,8 +79,17 @@ export default function App() {
 
   // Stripe redirects to pathname routes, not hash routes. Do not trust
   // the redirect itself as proof of payment.
-  if (paymentPath === "/payment-success" || paymentPath === "/payment-cancelled") {
-    return <PublicLayout><PaymentResult kind={paymentPath === "/payment-success" ? "success" : "cancelled"} /></PublicLayout>;
+  if (
+    paymentPath === "/payment-success" ||
+    paymentPath === "/payment-cancelled"
+  ) {
+    return (
+      <PublicLayout>
+        <PaymentResult
+          kind={paymentPath === "/payment-success" ? "success" : "cancelled"}
+        />
+      </PublicLayout>
+    );
   }
 
   // -------------------------
@@ -77,7 +97,12 @@ export default function App() {
   // -------------------------
 
   if (hash === "#admin/login") {
-    return <><PreviewBanner /><AdminLogin /></>;
+    return (
+      <>
+        <PreviewBanner />
+        <AdminLogin />
+      </>
+    );
   }
 
   // -------------------------
@@ -108,34 +133,71 @@ export default function App() {
   }
 
   if (hash === "#admin/dashboard") {
-    return <AdminGuard><AdminLayout><AdminDashboard /></AdminLayout></AdminGuard>;
+    return (
+      <AdminGuard>
+        <AdminLayout>
+          <AdminDashboard />
+        </AdminLayout>
+      </AdminGuard>
+    );
   }
 
   if (hash === "#admin/delivery") {
-    return <AdminGuard><AdminLayout><AdminDelivery /></AdminLayout></AdminGuard>;
+    return (
+      <AdminGuard>
+        <AdminLayout>
+          <AdminDelivery />
+        </AdminLayout>
+      </AdminGuard>
+    );
   }
   if (hash === "#admin/production") {
-    return <AdminGuard><AdminLayout><AdminProduction /></AdminLayout></AdminGuard>;
+    return (
+      <AdminGuard>
+        <AdminLayout>
+          <AdminProduction />
+        </AdminLayout>
+      </AdminGuard>
+    );
   }
 
   if (hash === "#admin/seasonal") {
-    return <AdminGuard><AdminLayout><AdminSeasonal /></AdminLayout></AdminGuard>;
+    return (
+      <AdminGuard>
+        <AdminLayout>
+          <AdminSeasonal />
+        </AdminLayout>
+      </AdminGuard>
+    );
   }
 
-  if (hash === "#seasonal") {
-    return <PublicLayout><SeasonalCollections /></PublicLayout>;
+  if (
+    hash === "#seasonal" ||
+    (paymentPath === "/seasonal" &&
+      !hash.startsWith("#admin") &&
+      !["#cart", "#checkout"].includes(hash))
+  ) {
+    return (
+      <PublicLayout>
+        <SeasonalCollections />
+      </PublicLayout>
+    );
   }
 
   // -------------------------
   // PUBLIC PRODUCT DETAIL
   // -------------------------
 
-  const productMatch = hash.match(/^#product\/([0-9a-fA-F-]{36})$/);
+  const productId = productIdFromPath(paymentPath);
 
-  if (productMatch) {
+  if (
+    productId &&
+    !hash.startsWith("#admin") &&
+    !["#cart", "#checkout"].includes(hash)
+  ) {
     return (
       <PublicLayout>
-        <ProductDetail productId={productMatch[1]} />
+        <ProductDetail productId={productId} />
       </PublicLayout>
     );
   }
@@ -144,12 +206,12 @@ export default function App() {
   // PUBLIC CART
   // -------------------------
 
-  if (hash === "#cart") {
+  if (hash === "#cart" || (paymentPath === "/cart" && !hash)) {
     return (
       <PublicLayout>
         <Cart
           onContinueShopping={() => {
-            window.location.hash = "#catalog";
+            window.location.assign("/catalog");
           }}
           onCheckout={() => {
             window.location.hash = "#checkout";
@@ -163,10 +225,14 @@ export default function App() {
   // GUEST CHECKOUT DETAILS
   // -------------------------
 
-  if (hash === "#checkout") {
+  if (hash === "#checkout" || (paymentPath === "/checkout" && !hash)) {
     return (
       <PublicLayout>
-        <Checkout onBack={() => { window.location.hash = "#cart"; }} />
+        <Checkout
+          onBack={() => {
+            window.location.hash = "#cart";
+          }}
+        />
       </PublicLayout>
     );
   }
@@ -175,11 +241,11 @@ export default function App() {
   // PUBLIC PAGES
   // -------------------------
 
-  const isCatalog = hash === "#catalog";
+  const isCatalog = paymentPath === "/catalog";
 
   return (
     <PublicLayout>
-      {isCatalog ? <Catalog /> : <Home />}
+      {isCatalog ? <Catalog /> : paymentPath === "/" ? <Home /> : <NotFound />}
     </PublicLayout>
   );
 }

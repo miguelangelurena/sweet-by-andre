@@ -1,6 +1,8 @@
+import { securityError } from "../utils/securityLog.js";
 
 import { pool } from "../config/database.js";
-import { credentialVersion } from "../services/authCredentials.js";
+import { validAuthenticatedSession } from "../services/authCredentials.js";
+import { expireSession } from "./expireSession.js";
 
 /**
  * Resolves an authenticated user when a session exists.
@@ -30,25 +32,19 @@ export const optionalAuth = async (req, res, next) => {
         );
 
         if (result.rowCount === 0) {
-            return res.status(401).json({
-                status: "ERROR",
-                message: "Invalid authenticated session"
-            });
+            return expireSession(req, res, "Invalid authenticated session");
         }
 
         const user = result.rows[0];
-        const version = credentialVersion(user.password_hash);
-        if (!version || req.session.credentialVersion !== version)
-            return res.status(401).json({ status: "ERROR", message: "Session expired. Please sign in again." });
+        if (!validAuthenticatedSession(req.session, user.password_hash))
+            return expireSession(req, res, "Session expired. Please sign in again.");
         req.user = { id: user.id, role: user.role };
+        req.session.lastSeenAt = Date.now();
 
         return next();
 
     } catch (error) {
-        console.error(
-            "Optional authentication failed:",
-            error
-        );
+        securityError(error, "Optional authentication failed:");
 
         return res.status(500).json({
             status: "ERROR",

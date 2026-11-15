@@ -1,3 +1,5 @@
+import { loadPublicProducts } from "../services/publicCatalog.service.js";
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 import { fileTypeFromBuffer } from "file-type";
 import {
@@ -8,71 +10,7 @@ import {
 
 export const getProducts = async (req, res) => {
     try {
-        const result = await pool.query(
-            `
-            SELECT
-                p.id,
-                p.name,
-                p.description,
-                p.price,
-                p.stock,
-                p.inventory_mode,
-                p.is_available,
-
-                c.id AS category_id,
-                c.name AS category_name,
-
-                (
-                    SELECT pi.image_url
-                    FROM product_images pi
-                    WHERE pi.product_id = p.id
-                    ORDER BY pi.display_order ASC, pi.id ASC
-                    LIMIT 1
-                ) AS image_url,
-
-                variant_summary.min_price,
-                variant_summary.total_stock,
-                (
-                    variant_summary.min_price IS NOT NULL
-                ) AS has_available_variants
-
-            FROM products p
-
-            INNER JOIN categories c
-                ON p.category_id = c.id
-
-            LEFT JOIN LATERAL (
-                SELECT
-                    MIN(v.price) AS min_price,
-                    COALESCE(SUM(v.stock), 0) AS total_stock
-
-                FROM product_variants v
-
-                WHERE v.product_id = p.id
-                  AND v.is_available = TRUE
-                  AND (p.inventory_mode = 'made_to_order' OR v.stock > 0)
-
-                  AND (
-                      SELECT COUNT(*)
-                      FROM product_options po
-                      WHERE po.product_id = p.id
-                  ) = (
-                      SELECT COUNT(DISTINCT pvv.option_id)
-                      FROM product_variant_values pvv
-                      INNER JOIN product_option_values pov
-                          ON pov.id = pvv.option_value_id
-                      WHERE pvv.variant_id = v.id
-                        AND pov.is_active = TRUE
-                  )
-
-            ) AS variant_summary ON TRUE
-
-            WHERE p.is_available = TRUE
-              AND c.is_active = TRUE
-
-            ORDER BY p.name;
-            `
-        );
+        const result = { rows: await loadPublicProducts() };
 
         return res.status(200).json({
             status: "GOOD",
@@ -80,7 +18,7 @@ export const getProducts = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -157,7 +95,7 @@ export const getProductById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -208,7 +146,7 @@ export const updateProductAvailability = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -343,7 +281,7 @@ export const createProduct = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -366,6 +304,12 @@ export const addProductImage = async (req, res) => {
                 message: "image_url must be a valid string"
             });
         }
+
+        try {
+            const url = new URL(image_url);
+            if (url.protocol !== "https:" || url.hostname !== "res.cloudinary.com" || url.username || url.password || url.port)
+                throw new Error();
+        } catch { return res.status(400).json({ status: "ERROR", message: "Use an HTTPS Cloudinary image URL" }); }
 
         if (
             !Number.isInteger(display_order) ||
@@ -417,7 +361,7 @@ export const addProductImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -439,11 +383,11 @@ export const getProductImages = async (req, res) => {
 
         const existingProduct = await pool.query(
             `
-            SELECT id
-            FROM products
-            WHERE id = $1;
+            SELECT p.id
+            FROM products p JOIN categories c ON c.id=p.category_id
+            WHERE p.id = $1 AND ($2::boolean OR (p.is_available AND c.is_active));
             `,
-            [id]
+            [id, req.path.startsWith("/admin/")]
         );
 
         if (existingProduct.rows.length === 0) {
@@ -472,7 +416,7 @@ export const getProductImages = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -651,7 +595,7 @@ export const updateProduct = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        securityError(error, "product.controllers.js");
 
         return res.status(500).json({
             status: "ERROR",
@@ -819,7 +763,7 @@ export const updateProductImage = async (req, res) => {
     } catch (error) {
         await client.query("ROLLBACK");
 
-        console.error("Update product image error:", error);
+        securityError(error, "Update product image error:");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -884,10 +828,7 @@ export const deleteProductImage = async (req, res) => {
             if (
                 !["ok", "not found"].includes(cloudinaryResult.result)
             ) {
-                console.error(
-                    "Cloudinary deletion failed:",
-                    cloudinaryResult
-                );
+                securityError(cloudinaryResult, "Cloudinary deletion failed:");
 
                 return res.status(502).json({
                     status: "ERROR",
@@ -925,7 +866,7 @@ export const deleteProductImage = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Delete product image error:", error);
+        securityError(error, "Delete product image error:");
 
         if (error.code === "22P02") {
             return res.status(400).json({
@@ -956,7 +897,9 @@ export const uploadProductImage = async (req, res) => {
     let uploadedImage = null;
 
     try {
-        const detectedType = await fileTypeFromBuffer(req.file.buffer);
+        let detectedType;
+        try { detectedType = await fileTypeFromBuffer(req.file.buffer); }
+        catch { return res.status(400).json({ status: "ERROR", message: "Invalid image format" }); }
 
         const allowedTypes = [
             "image/jpeg",
@@ -964,7 +907,7 @@ export const uploadProductImage = async (req, res) => {
             "image/webp"
         ];
 
-        if (!detectedType || !allowedTypes.includes(detectedType.mime)) {
+        if (!detectedType || !allowedTypes.includes(detectedType.mime) || detectedType.mime !== req.file.mimetype) {
             return res.status(400).json({
                 status: "ERROR",
                 message: "Invalid image format"
@@ -1031,14 +974,11 @@ export const uploadProductImage = async (req, res) => {
             try {
                 await deleteImageFromCloudinary(uploadedImage.public_id);
             } catch (cleanupError) {
-                console.error(
-                    "Cloudinary cleanup failed:",
-                    cleanupError
-                );
+                securityError(cleanupError, "Cloudinary cleanup failed:");
             }
         }
 
-        console.error("Upload product image error:", error);
+        securityError(error, "Upload product image error:");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -1093,7 +1033,7 @@ export const getAdminProducts = async (req, res) => {
             products: result.rows
         });
     } catch (error) {
-        console.error("Get admin products error:", error);
+        securityError(error, "Get admin products error:");
 
         return res.status(500).json({
             status: "ERROR",

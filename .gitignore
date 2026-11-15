@@ -1,4 +1,10 @@
 backend/node_modules/
+**/node_modules/
+frontend/dist/
+**/*.tsbuildinfo
+**/cookies*.txt
+**/*.pem
+**/*.key
 backend/.env
 .vscode/
 .DS_Store

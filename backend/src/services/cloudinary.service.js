@@ -37,8 +37,8 @@ export const uploadImageToCloudinary = async (
 };
 
 export const deleteImageFromCloudinary = async (publicId) => {
-    if (process.env.APP_ENV === "staging" && !publicId.startsWith(`${imageFolder()}/`)) {
-        throw new Error("Staging can delete only its own uploaded images");
+    if (typeof publicId !== "string" || !publicId.startsWith(`${imageFolder()}/products/`) || publicId.includes("..")) {
+        throw new Error("Image deletion is restricted to the current application's upload folder");
     }
     return cloudinary.uploader.destroy(publicId, {
         resource_type: "image"

@@ -1,17 +1,19 @@
+import { securityError } from "../utils/securityLog.js";
 
 import { pool } from "../config/database.js";
 
 export const getProductVariants = async (req, res) => {
     const { id: productId } = req.params;
+    const isAdminRequest = req.path.startsWith("/admin/");
 
     try {
         const productResult = await pool.query(
             `
-            SELECT id, name, inventory_mode
-            FROM products
-            WHERE id = $1
+            SELECT p.id, p.name, p.inventory_mode
+            FROM products p JOIN categories c ON c.id=p.category_id
+            WHERE p.id = $1 AND ($2::boolean OR (p.is_available AND c.is_active))
             `,
-            [productId]
+            [productId, isAdminRequest]
         );
 
         if (productResult.rows.length === 0) {
@@ -57,8 +59,6 @@ export const getProductVariants = async (req, res) => {
             `,
             [productId]
         );
-
-        const isAdminRequest = req.path.startsWith("/admin/");
 
         // Get configured options and their values
         const optionsResult = await pool.query(
@@ -127,7 +127,7 @@ export const getProductVariants = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get product variants error:", error);
+        securityError(error, "Get product variants error:");
 
         if (error.code === "22P02") {
             return res.status(400).json({
@@ -191,7 +191,7 @@ export const createProductOption = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Create product option error:", error);
+        securityError(error, "Create product option error:");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -262,7 +262,7 @@ export const createProductOptionValue = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Create option value error:", error);
+        securityError(error, "Create option value error:");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -489,7 +489,7 @@ export const createProductVariant = async (req, res) => {
 
     } catch (error) {
         await client.query("ROLLBACK");
-        console.error("Create product variant error:", error);
+        securityError(error, "Create product variant error:");
 
         if (error.code === "22P02") {
             return res.status(400).json({
@@ -620,7 +620,7 @@ export const updateProductVariant = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update product variant error:", error);
+        securityError(error, "Update product variant error:");
 
         if (error.code === "22P02") {
             return res.status(400).json({
@@ -703,7 +703,7 @@ export const getProductOptions = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get product options error:", error);
+        securityError(error, "Get product options error:");
 
         if (error.code === "22P02") {
             return res.status(400).json({
@@ -802,7 +802,7 @@ export const updateProductOption = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update product option error:", error);
+        securityError(error, "Update product option error:");
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -934,7 +934,7 @@ export const updateProductOptionValue = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update product option value error:", error);
+        securityError(error, "Update product option value error:");
 
         if (error.code === "23505") {
             return res.status(409).json({

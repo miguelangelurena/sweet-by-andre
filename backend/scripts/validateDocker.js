@@ -101,7 +101,7 @@ async function validateMode(mode) {
   await ready(async () => (await call("/api/health")).ok, `${mode} restart`);
   const categories = await (await call("/api/admin/categories", {}, cookie)).json();
   assert.ok(categories.categories.some(row => row.name === "Docker validation category"));
-  const logout = await call("/api/auth/logout", { method: "POST" }, cookie);
+  const logout = await call("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": token } }, cookie);
   assert.equal(logout.status, 200, `${mode} logout`);
   assert.equal((await call("/api/admin/products", {}, cookie)).status, 401);
   console.log(`${mode}: image build, isolated initialization, frontend, secure cookies, CSRF, restart persistence and logout passed.`);

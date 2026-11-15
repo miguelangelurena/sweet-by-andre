@@ -12,7 +12,7 @@ FROM node:24-bookworm-slim AS runtime
 WORKDIR /app/backend
 ARG APP_ENV=staging
 ENV NODE_ENV=production APP_ENV=${APP_ENV} SERVE_FRONTEND=true \
-    ENABLE_STRIPE_CHECKOUT=false ENABLE_ADMIN_REFUNDS=false ENABLE_TRANSACTIONAL_NOTIFICATIONS=false ENABLE_TRANSACTIONAL_SMS=false
+    ENABLE_STRIPE_CHECKOUT=false ENABLE_ADMIN_REFUNDS=false ENABLE_TRANSACTIONAL_NOTIFICATIONS=false ENABLE_TRANSACTIONAL_SMS=false ENABLE_CUSTOMER_REGISTRATION=false
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --chown=node:node backend/ ./

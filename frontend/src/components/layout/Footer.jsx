@@ -11,7 +11,7 @@ export default function Footer() {
       <div className="mx-auto max-w-[1180px]">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr]">
           <div className="max-w-sm">
-            <a href="/#home" className="font-serif text-3xl">
+            <a href="/" className="font-serif text-3xl">
               Sweet by Andre
             </a>
             <p className="mt-4 font-serif text-xl italic text-[#9E4F60]">
@@ -59,7 +59,7 @@ export default function Footer() {
               pickup or confirm delivery availability and the fee for your area.
             </p>
             <a
-              href="/#catalog"
+              href="/catalog"
               className="mt-5 inline-block text-sm font-semibold text-[#9E4F60] hover:underline"
             >
               Explore our menu

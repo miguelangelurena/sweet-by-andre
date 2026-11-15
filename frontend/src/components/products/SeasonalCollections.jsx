@@ -6,6 +6,7 @@ import { ProductGridSkeleton } from "../ui/Skeleton";
 const decorations = { valentines: "♡", thanksgiving: "✦", christmas: "✧" };
 
 export default function SeasonalCollections({ compact = false }) {
+  const Heading = compact ? "h2" : "h1";
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,14 +22,14 @@ export default function SeasonalCollections({ compact = false }) {
     return () => { active = false; };
   }, []);
   if (error) return compact ? null : <p role="alert" className="py-10 text-center text-red-700">Could not load seasonal collections. {error}</p>;
-  if (!loading && collections.length === 0) return compact ? null : <p className="py-12 text-center text-sm text-[#756B69]">Seasonal treats are coming soon.</p>;
+  if (!loading && collections.length === 0) return compact ? null : <main className="px-6 py-12 text-center"><h1 className="font-serif text-3xl">Seasonal sweets</h1><p className="mt-5 text-sm text-[#756B69]">Seasonal treats are coming soon.</p><a href="/catalog" className="mt-5 inline-block underline">Explore the current dessert menu</a></main>;
   const byId = new Map(products.map((p) => [p.id, p]));
   return (
     <section id="seasonal" className={compact ? "bg-[#FFF9F8] px-6 py-20" : "bg-[#FFF9F8] px-4 py-10 sm:px-6 sm:py-20"} aria-label="Seasonal collections">
       <div className="mx-auto max-w-7xl">
         <div className={compact ? "mb-10 text-center" : "mb-6 text-center sm:mb-10"}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#B76473]">For every celebration</p>
-          <h2 className={`mt-3 font-serif text-[#282323] ${compact ? "text-4xl" : "text-3xl sm:text-4xl"}`}>Seasonal sweets</h2>
+          <Heading className={`mt-3 font-serif text-[#282323] ${compact ? "text-4xl" : "text-3xl sm:text-4xl"}`}>Seasonal sweets</Heading>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#796D6A]">Handcrafted collections for your favorite moments.</p>
         </div>
         {loading ? (compact
@@ -45,7 +46,7 @@ export default function SeasonalCollections({ compact = false }) {
                 </header>
                 {available.length ? <div className={compact ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3" : "grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3"}>{available.slice(0, compact ? 3 : undefined).map(product => <ProductCard product={product} compactOnMobile={!compact} key={product.id} />)}</div>
                   : <p className="text-sm text-[#756B69]">No desserts available for this collection just yet.</p>}
-                {compact && available.length > 3 && <a href="#seasonal" className="mt-5 inline-block font-semibold text-[#B76473] underline">See all seasonal treats</a>}
+                {compact && available.length > 3 && <a href="/seasonal" className="mt-5 inline-block font-semibold text-[#B76473] underline">See all seasonal treats</a>}
               </div>
             );
           })}</div>}

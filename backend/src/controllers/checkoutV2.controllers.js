@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 
 import { stripe } from "../config/stripe.js";
 import { DeliveryError } from "../services/deliveryPolicy.service.js";
@@ -80,7 +81,7 @@ export function makeCheckoutV2Controller({
 
         } catch (error) {
             if (error instanceof DeliveryError) return res.status(error.status).json({ status: "ERROR", code: error.code, message: error.message });
-            console.error("Checkout V2 failed:", error);
+            securityError(error, "Checkout V2 failed:");
 
             return res.status(500).json({
                 status: "ERROR",

@@ -1,3 +1,4 @@
+import { consumeRateLimits } from "../services/rateLimitStore.js";
 import { createHmac } from "node:crypto";
 import { pool } from "../config/database.js";
 
@@ -16,24 +17,7 @@ export function createAuthRateLimit({ database = pool, action = "login" } = {}) 
     const keys = [`${action}:ip:${hash(ip)}`, `${action}:identity:${hash(JSON.stringify([ip, email]))}`];
     const limits = action === "register" ? [10, 5] : [30, 10];
     try {
-      const result = await database.query(`
-        WITH cleanup AS (
-          DELETE FROM public.auth_rate_limits WHERE key IN (
-            SELECT key FROM public.auth_rate_limits
-            WHERE expires_at <= NOW() AND NOT (key = ANY($1::text[]))
-            ORDER BY expires_at LIMIT 100
-          )
-        )
-        INSERT INTO public.auth_rate_limits AS current (key, attempts, expires_at)
-        SELECT key, 1, NOW() + ($2 * INTERVAL '1 second')
-        FROM unnest($1::text[]) AS keys(key) ORDER BY key
-        ON CONFLICT (key) DO UPDATE SET
-          attempts = CASE WHEN current.expires_at <= NOW() THEN 1
-            ELSE LEAST(current.attempts + 1, 1000000) END,
-          expires_at = CASE WHEN current.expires_at <= NOW()
-            THEN NOW() + ($2 * INTERVAL '1 second') ELSE current.expires_at END
-        RETURNING key, attempts, CEIL(EXTRACT(EPOCH FROM (expires_at - NOW())))::int AS retry_after
-      `, [keys, WINDOW_SECONDS]);
+      const result = { rows: await consumeRateLimits(keys, WINDOW_SECONDS, database) };
       const blocked = result.rows.filter(row => row.attempts > limits[keys.indexOf(row.key)]);
       if (blocked.length) {
         res.set("Retry-After", String(Math.max(1, ...blocked.map(row => row.retry_after))));

@@ -56,6 +56,8 @@ app.post("/test/login", async (req, res) => {
     const result = await pool.query("SELECT password_hash FROM users WHERE id=$1", [req.body.user_id]);
     req.session.userId = req.body.user_id;
     req.session.credentialVersion = credentialVersion(result.rows[0]?.password_hash);
+    req.session.authenticatedAt = Date.now();
+    req.session.lastSeenAt = req.session.authenticatedAt;
 
     req.session.save((error) => {
         if (error) {

@@ -1,4 +1,4 @@
-﻿import quesillo from "../../assets/home/flan-closeup.jpg";
+﻿import quesillo from "../../assets/home/flan-closeup.webp";
 
 export default function OurStory() {
   return (
@@ -28,6 +28,7 @@ export default function OurStory() {
                 src={quesillo}
                 alt="A close-up of Sweet by Andre’s caramel quesillo"
                 loading="lazy"
+                decoding="async"
                 className="brand-photo aspect-[4/5] w-full rounded-t-[40%] rounded-b-3xl object-cover"
               />
               <figcaption className="mt-5 text-center text-xs tracking-wide text-[#786962]">

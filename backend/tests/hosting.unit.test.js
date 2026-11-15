@@ -26,6 +26,10 @@ test("hosting recognizes Render and Railway while preserving explicit origins", 
   );
   assert.deepEqual(frontendOrigins({}), ["http://localhost:5173"]);
 });
+
+test("hosted configuration refuses globally disabled TLS verification", () => {
+  assert.throws(() => validateStagingRuntime({ NODE_TLS_REJECT_UNAUTHORIZED: "0" }), /TLS certificate/);
+});
 test("DATABASE_URL takes priority and TLS verification is never silently disabled", () => {
   const remote = databaseOptions({
     DATABASE_URL: "postgresql://example/db",

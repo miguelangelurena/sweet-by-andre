@@ -1,3 +1,5 @@
+import { requestRateLimit } from "../middleware/requestRateLimit.js";
+import { installUuidParams } from "../middleware/uuidParams.js";
 
 import express from "express";
 
@@ -37,6 +39,7 @@ import { requireSessionCsrf } from "../middleware/sessionCsrf.js";
 import { handleUploadError } from "../middleware/handleUploadError.js";
 
 const router = express.Router();
+installUuidParams(router);
 
 // -------------------------
 // PUBLIC PRODUCT ROUTES
@@ -47,6 +50,7 @@ router.get("/products", getProducts);
 router.get("/products/:id", getProductById);
 
 router.get("/products/:id/images", getProductImages);
+router.get("/admin/products/:id/images", requireAuth, requireAdmin, getProductImages);
 
 router.get("/products/:id/variants", getProductVariants);
 
@@ -165,6 +169,7 @@ router.post(
     requireAuth,
     requireAdmin,
     requireSessionCsrf,
+    requestRateLimit({ action: "upload", limit: 20, identityLimit: 20 }),
     uploadMiddleware,
     handleUploadError,
     uploadProductImage

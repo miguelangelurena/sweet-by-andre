@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { createHash } from "node:crypto";
 
 import { pool } from "../config/database.js";
@@ -571,11 +572,11 @@ export const createOrder = async (req, res) => {
 
     } catch (error) {
         if (client) {
-            await client.query("ROLLBACK").catch(console.error);
+            await client.query("ROLLBACK").catch(error => securityError(error, "Transaction rollback failed"));
         }
 
         if (error instanceof DeliveryError) return fail(res, error.status, error.message, error.code);
-        console.error("Create order error:", error);
+        securityError(error, "Create order error:");
 
         return fail(res, 500, "Internal server error");
 

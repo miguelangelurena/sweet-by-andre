@@ -1,3 +1,4 @@
+import { securityError } from "../utils/securityLog.js";
 import { pool } from "../config/database.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,7 +26,7 @@ export async function getGuestOrderStatus(req, res) {
     }
     return res.status(200).json({ status: "GOOD", order: result.rows[0] });
   } catch (error) {
-    console.error("Guest order status failed:", error);
+    securityError(error, "Guest order status failed:");
     return res.status(500).json({ status: "ERROR", message: "Could not read order status" });
   }
 }

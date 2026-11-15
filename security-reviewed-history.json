@@ -1,0 +1,26 @@
+{
+  "description": "Revocation evidence only. No credential values or hashes.",
+  "entries": [
+    {
+      "path": "backend/.env.test",
+      "blob": "030f8aa12229449909496c77315dfe40eb7888b3",
+      "type": "Database password in environment file",
+      "status": "revoked",
+      "verifiedAt": "2026-11-15"
+    },
+    {
+      "path": "backend/.env.test",
+      "blob": "adfc2dffa8ce1c02273c663dc9f9a5db84571615",
+      "type": "Database password in environment file",
+      "status": "revoked",
+      "verifiedAt": "2026-11-15"
+    },
+    {
+      "path": "backend/.env.test",
+      "blob": "ae7e69aede3f894e633c42098e5b6c0f5110407a",
+      "type": "Database password in environment file",
+      "status": "revoked",
+      "verifiedAt": "2026-11-15"
+    }
+  ]
+}

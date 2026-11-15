@@ -4,6 +4,17 @@ import { randomUUID } from "node:crypto";
 import request from "supertest";
 import app from "../src/app.js";
 import { pool } from "../src/config/database.js";
+import { before, after } from "node:test";
+import { requireTestDatabase } from "./helpers/requireTestDatabase.js";
+
+before(() => requireTestDatabase(pool));
+after(async () => {
+    // This file uses the real registration endpoint. Do not leave shared
+    // loopback registration counters for other sequential fixture files.
+    await requireTestDatabase(pool);
+    await pool.query("DELETE FROM auth_rate_limits WHERE key LIKE 'register:%'");
+    await pool.end();
+});
 
 test("authentication flow: register, login, access profile, logout", async () => {
     const email = `auth-flow-${randomUUID()}@example.com`;
@@ -45,8 +56,10 @@ test("authentication flow: register, login, access profile, logout", async () =>
         assert.equal(profile.body.status, "GOOD");
         assert.equal(profile.body.user.email, email);
 
+        const csrf = (await agent.get("/api/cart/csrf-token").expect(200)).body.csrf_token;
         const logout = await agent
             .post("/api/auth/logout")
+            .set("X-CSRF-Token", csrf)
             .expect("Content-Type", /json/)
             .expect(200);
 
