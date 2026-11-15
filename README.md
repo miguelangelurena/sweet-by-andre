@@ -69,6 +69,7 @@ La suite de checkout requiere una base separada llamada `sweet_by_andre_test` co
 - [Protección del acceso administrativo](backend/tests/AUTH_SECURITY_VALIDATION.md).
 - [Revisión de seguridad y riesgos pendientes](SECURITY_REVIEW.md).
 - [SEO, indexación y preparación para Google](SEO_SETUP.md).
+- [Validación publicada de staging y pendientes](STAGING_VALIDATION.md).
 - [Mantenimiento y reporte de vulnerabilidades](SECURITY.md).
 - [Respaldos y recuperación](BACKUPS.md).
 - [Preparación para producción y entrega](PRODUCTION_READINESS.md).

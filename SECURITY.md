@@ -45,7 +45,7 @@ El workflow `security.yml` reproduce los controles de dependencias, higiene,
 frontend, checkout y despliegue usando PostgreSQL 18 desechable y credenciales
 ficticias. No utiliza secretos del negocio. La restauración se comprueba aparte,
 con las herramientas PostgreSQL instaladas. El workflow queda pendiente de su
-primera ejecución en GitHub y de configurarlo como comprobación obligatoria de
+verificación de su resultado en GitHub y de configurarlo como comprobación obligatoria de
 la rama protegida. Dependabot propone actualizaciones semanales.
 
 El escáner de higiene es complementario: reconoce algunos formatos de secretos,

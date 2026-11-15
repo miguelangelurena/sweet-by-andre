@@ -1,7 +1,7 @@
 # SEO de Sweet by André
 
-Revisión técnica del 15 de noviembre de 2026. Cambios preparados y comprobados
-localmente; todavía no desplegados ni enviados a Google. No se activó la
+Revisión técnica del 15 de noviembre de 2026. Cambios publicados y comprobados
+en staging; producción y envío a Google siguen pendientes. No se activó la
 indexación, no se modificó DNS y no se crearon cuentas o fichas del negocio.
 
 ## Implementado
@@ -151,8 +151,9 @@ npm run test:hosting --prefix frontend
 ```
 
 Las pruebas de backend requieren exclusivamente bases PostgreSQL locales de
-prueba. CI incluye los nuevos casos. Falta validar el despliegue real y ejecutar
-el workflow en GitHub. No se han medido posiciones ni tráfico todavía.
+prueba. CI incluye los nuevos casos. El resultado publicado está en
+[STAGING_VALIDATION.md](STAGING_VALIDATION.md). Falta ejecutar el workflow en
+GitHub y validar producción. No se han medido posiciones ni tráfico todavía.
 
 Las URLs rastreables y el contenido servido inicialmente siguen las recomendaciones
 de [Google para aplicaciones JavaScript](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)

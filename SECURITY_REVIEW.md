@@ -1,7 +1,8 @@
 # Revisión de seguridad de Sweet by André
 
-Fecha: 15 de noviembre de 2026. Estado: cambios locales implementados y
-comprobados; pendientes de despliegue y aceptación en staging. Esta revisión
+Fecha: 15 de noviembre de 2026. Estado: cambios implementados, publicados y
+comprobados en staging; ver [STAGING_VALIDATION.md](STAGING_VALIDATION.md) para
+resultados y pendientes de aceptación. Esta revisión
 de código y pruebas adversariales reduce riesgos, pero no acredita ausencia de
 vulnerabilidades ni certificación ASVS. No sustituye una evaluación independiente.
 
@@ -87,7 +88,7 @@ El análisis por patrones no garantiza que nunca se hayan compartido otros secre
 
 | Comprobación                                    | Resultado                                      |
 | ----------------------------------------------- | ---------------------------------------------- |
-| Checkout, autenticación y seguridad             | 128/128                                        |
+| Checkout, autenticación y seguridad             | 136/136                                        |
 | Staging                                         | 7/7                                            |
 | Producción cerrada                              | 8/8                                            |
 | Respaldos y restauración                        | 5/5                                            |
