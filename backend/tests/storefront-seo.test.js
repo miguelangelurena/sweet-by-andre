@@ -69,6 +69,36 @@ function schema(html) {
 }
 
 test("indexing is opt-in for production with a valid explicit HTTPS origin", () => {
+  assert.equal(
+    siteOrigin({
+      APP_ENV: "staging",
+      RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+    }),
+    "https://preview.onrender.com",
+  );
+  assert.equal(
+    siteOrigin({
+      APP_ENV: "staging",
+      RAILWAY_PUBLIC_DOMAIN: "preview.up.railway.app",
+    }),
+    "https://preview.up.railway.app",
+  );
+  assert.equal(
+    isSiteIndexable({
+      APP_ENV: "staging",
+      SITE_INDEXABLE: "true",
+      RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+    }),
+    false,
+  );
+  assert.equal(
+    isSiteIndexable({
+      APP_ENV: "production",
+      SITE_INDEXABLE: "true",
+      RENDER_EXTERNAL_URL: "https://preview.onrender.com",
+    }),
+    false,
+  );
   assert.equal(isSiteIndexable(production), true);
   for (const env of [
     { ...production, APP_ENV: "staging" },

@@ -45,6 +45,10 @@ La aplicación de Vite por sí sola sigue llevando `noindex`: el HTML indexable
 debe servirse a través de Express (`SERVE_FRONTEND=true`). No publicar únicamente
 `frontend/dist` en un hosting estático esperando las mismas capacidades SEO.
 
+En staging, si no se define `SITE_URL` ni `FRONTEND_URL`, los metadatos usan la
+URL HTTPS proporcionada por Render o Railway. Esta alternativa mantiene `noindex`
+y no habilita la indexación de producción, que exige un origen explícito.
+
 ## Rendimiento comprobado
 
 | Recurso                            |      Antes |   Después |

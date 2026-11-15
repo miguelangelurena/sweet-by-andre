@@ -24,7 +24,14 @@ const description = (value) =>
 
 export function siteOrigin(env = process.env) {
   try {
-    const url = new URL(env.SITE_URL || env.FRONTEND_URL || "");
+    const previewOrigin =
+      env.APP_ENV === "staging"
+        ? env.RENDER_EXTERNAL_URL ||
+          (env.RAILWAY_PUBLIC_DOMAIN
+            ? `https://${env.RAILWAY_PUBLIC_DOMAIN}`
+            : "")
+        : "";
+    const url = new URL(env.SITE_URL || env.FRONTEND_URL || previewOrigin);
     if (
       url.protocol !== "https:" ||
       url.username ||
