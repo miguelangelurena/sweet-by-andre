@@ -3,6 +3,8 @@ import { getProductById, getProductVariants } from "../services/api";
 import { ProductDetailSkeleton } from "../components/ui/Skeleton";
 import MinimalSelect from "../components/ui/MinimalSelect";
 import { compareOptionLabels } from "../utils/naturalSort";
+import { initialProductVariant } from "../utils/productVariants";
+import ProductImage from "../components/products/ProductImage";
 
 // Set VITE_API_BASE_URL in frontend/.env to the Express origin (without /api).
 // For local development the default expects Express on port 3000.
@@ -75,8 +77,7 @@ export default function ProductDetail({ productId }) {
         setProduct(productResponse.product);
         setVariants(availableVariants);
 
-        // Select the first purchasable configuration initially.
-        const first = availableVariants[0];
+        const first = initialProductVariant(availableVariants);
         if (first) {
           setSelectedValues(
             Object.fromEntries(
@@ -275,17 +276,13 @@ export default function ProductDetail({ productId }) {
             className="mx-auto w-full max-w-md lg:sticky lg:top-6"
           >
             <div className="aspect-square overflow-hidden rounded-3xl bg-[#F1E5E2]">
-              {images.length > 0 ? (
-                <img
-                  src={images[selectedImage]?.image_url}
-                  alt={product.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center font-serif text-3xl italic text-[#B76473]">
-                  Sweet by Andre
-                </div>
-              )}
+              <ProductImage
+                src={images[selectedImage]?.image_url}
+                alt={product.name}
+                className="h-full w-full object-cover"
+                fallback="Sweet by Andre"
+                fallbackClassName="flex h-full items-center justify-center font-serif text-3xl italic text-[#B76473]"
+              />
             </div>
 
             {images.length > 1 && (
@@ -303,7 +300,7 @@ export default function ProductDetail({ productId }) {
                         : "border-transparent"
                     }`}
                   >
-                    <img
+                    <ProductImage
                       src={image.image_url}
                       alt=""
                       className="h-full w-full object-cover"

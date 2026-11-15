@@ -1,3 +1,5 @@
+import ProductImage from "./ProductImage";
+
 const formatPrice = (price) => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -19,22 +21,19 @@ export default function ProductCard({ product, compactOnMobile = true }) {
       <div
         className={`overflow-hidden bg-[#F1E5E2] ${compactOnMobile ? "aspect-square rounded-xl sm:aspect-[3/2] sm:rounded-none" : "aspect-[4/3]"}`}
       >
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
+        <ProductImage
+          src={product.image_url}
+          alt={product.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+          fallback={
             <span
               className={`text-center font-serif italic text-[#B76473]/70 ${compactOnMobile ? "px-2 text-sm sm:text-3xl" : "text-3xl"}`}
             >
               Sweet by Andre
             </span>
-          </div>
-        )}
+          }
+        />
       </div>
 
       <div className={compactOnMobile ? "min-w-0 sm:p-5" : "p-7"}>

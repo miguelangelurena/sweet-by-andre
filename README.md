@@ -71,6 +71,7 @@ La suite de checkout requiere una base separada llamada `sweet_by_andre_test` co
 - [Preparación para producción y entrega](PRODUCTION_READINESS.md).
 - [Configuración y arranque de producción](PRODUCTION_SETUP.md).
 - [Guía de uso para Andrea](GUIA_ANDREA.md).
+- [Revisión del catálogo y precios pendientes de aprobación](CATALOG_REVIEW.md).
 - [Recuperación asistida del acceso administrativo](ADMIN_ACCESS_RECOVERY.md).
 - [Configuración de delivery](DELIVERY_SETUP.md).
 - [Capacidad de preparación](backend/database/PRODUCTION.md). Aquí `db:production` instala la capacidad de preparación; no despliega el sitio a producción.
