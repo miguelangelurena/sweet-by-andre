@@ -40,3 +40,5 @@ Ejecuta `npm.cmd run test:checkout`. El ejecutor instala el esquema y limpia ún
 5. Probar los selectores con ratón, teclado y una pantalla pequeña.
 
 La compilación y el lint no sustituyen estas comprobaciones visuales.
+
+La recuperación asistida y el cambio de contraseña invalidan las sesiones de la cuenta, incluido un registro antiguo que vuelva a guardarse por una solicitud concurrente. Las sesiones previas a esta actualización deben iniciar sesión otra vez. No se necesita migración de esquema. Consulta [ADMIN_ACCESS_RECOVERY.md](../../ADMIN_ACCESS_RECOVERY.md) para el procedimiento y sus pruebas.

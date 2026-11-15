@@ -7,6 +7,8 @@ import express from "express";
 import session from "express-session";
 import cookieParser from "cookie-parser";
 import request from "supertest";
+import bcrypt from "bcrypt";
+import { credentialVersion } from "../src/services/authCredentials.js";
 
 import { pool } from "../src/config/database.js";
 
@@ -50,8 +52,10 @@ app.use(session({
 }));
 
 // Simulate successful login exclusively inside the test.
-app.post("/test/login", (req, res) => {
+app.post("/test/login", async (req, res) => {
+    const result = await pool.query("SELECT password_hash FROM users WHERE id=$1", [req.body.user_id]);
     req.session.userId = req.body.user_id;
+    req.session.credentialVersion = credentialVersion(result.rows[0]?.password_hash);
 
     req.session.save((error) => {
         if (error) {
@@ -113,16 +117,17 @@ test(
                         last_name,
                         email,
                         phone,
-                        role
+                        role, password_hash
                     )
-                    VALUES ($1, $2, $3, $4, 'customer')
+                    VALUES ($1, $2, $3, $4, 'customer', $5)
                     RETURNING id
                     `,
                     [
                         `CheckoutTest${index}`,
                         "Customer",
                         `checkout-${randomUUID()}@example.com`,
-                        "5551234567"
+                        "5551234567",
+                        await bcrypt.hash("TestOnlyCheckoutPassword123!", 4)
                     ]
                 );
 

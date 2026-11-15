@@ -45,6 +45,8 @@ export function login(email, password) {
     });
 }
 
+export const logout = () => withAdminCsrf("/auth/logout", { method: "POST" });
+
 export function getAdminProducts() {
     return apiRequest("/admin/products");
 }

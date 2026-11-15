@@ -32,7 +32,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 const allowedOrigins = frontendOrigins();
 
-if (process.env.APP_ENV === "staging") app.use((_req, res, next) => {
+if (process.env.APP_ENV === "staging" || (process.env.APP_ENV === "production" && process.env.SITE_INDEXABLE !== "true")) app.use((_req, res, next) => {
     res.set("X-Robots-Tag", "noindex, nofollow"); next();
 });
 

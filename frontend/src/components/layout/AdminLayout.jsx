@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PreviewBanner from "./PreviewBanner";
+import { logout } from "../../services/api";
 
 const NAV = [
   { href: "#admin/dashboard", label: "Dashboard" },
@@ -12,6 +13,20 @@ const NAV = [
 
 export default function AdminLayout({ children }) {
   const [hash, setHash] = useState(window.location.hash);
+  const [signingOut, setSigningOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setLogoutError("");
+    try {
+      await logout();
+      window.location.hash = "#admin/login";
+    } catch (error) {
+      if (error.status === 401) window.location.hash = "#admin/login";
+      else setLogoutError("Could not sign out. Please try again.");
+    } finally { setSigningOut(false); }
+  }
   useEffect(() => {
     const update = () => setHash(window.location.hash);
     window.addEventListener("hashchange", update);
@@ -39,7 +54,14 @@ export default function AdminLayout({ children }) {
             );
           })}
         </nav>
-        <div className="p-4"><a href="#home" className="text-sm text-[#756B69] hover:text-[#B76473]"> View website</a></div>
+        <div className="space-y-3 p-4">
+          <a href="#home" className="block text-sm text-[#756B69] hover:text-[#B76473]">View website</a>
+          <button type="button" onClick={signOut} disabled={signingOut}
+            className="min-h-11 w-full rounded-lg border border-[#E7DCD9] px-4 py-2 text-left text-sm font-semibold text-[#756B69] hover:bg-[#FAF0F1] disabled:opacity-50">
+            {signingOut ? "Signing out..." : "Sign out"}
+          </button>
+          {logoutError && <p role="alert" className="text-sm text-red-700">{logoutError}</p>}
+        </div>
       </aside>
       <div className="min-w-0 flex-1">
         <PreviewBanner />

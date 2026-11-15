@@ -19,6 +19,7 @@
     "db:backup:verify": "node scripts/verifyDatabaseBackup.js",
     "test:backup": "node --test tests/database-backup.test.js",
     "notifications:status": "node scripts/checkNotifications.js",
+    "admin:reset-password": "node scripts/resetAdminPassword.js",
     "db:staging": "node scripts/initializeStaging.js",
     "db:deploy-production": "node scripts/initializeProduction.js",
     "start:production": "node scripts/startProduction.js",

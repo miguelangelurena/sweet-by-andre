@@ -27,7 +27,7 @@ No reutilizar `SESSION_SECRET`, `CSRF_SECRET`, contraseña administrativa, conex
 - Aplicar las migraciones, incluida `auth-security.sql`, antes de aceptar tráfico. Publicar frontend y backend compatibles: las modificaciones del catálogo ahora exigen CSRF.
 - Revisar la activación live de Stripe y los reembolsos. El guard actual de reembolsos rechaza claves reales; cambiar una variable no completa este trabajo.
 - Mantener `SITE_INDEXABLE=false` durante la preparación. El banner de staging ya se excluye de la compilación de producción; confirmar los textos y la indexación para el lanzamiento final.
-- Completar la revisión de acceso y recuperación de la cuenta administrativa. La protección contra intentos repetidos está implementada; todavía no hay un flujo de recuperación de contraseña para la dueña.
+- Validar con la dueña la recuperación asistida de [ADMIN_ACCESS_RECOVERY.md](ADMIN_ACCESS_RECOVERY.md) y acordar el canal de soporte. El comando ya restablece una cuenta existente e invalida sesiones; la recuperación automática por correo sigue pendiente.
 
 ## Requisitos operativos
 

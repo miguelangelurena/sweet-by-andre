@@ -1,5 +1,6 @@
 ﻿import { pool } from "../config/database.js";
 import bcrypt from "bcrypt";
+import { credentialVersion } from "../services/authCredentials.js";
 
 const text = (value) => typeof value === "string" ? value.trim() : "";
 const validEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -103,7 +104,7 @@ export const login = async (req, res) => {
         );
 
 
-        if (result.rows.length === 0) {
+        if (result.rows.length === 0 || !credentialVersion(result.rows[0].password_hash)) {
             return res.status(401).json({
                 status: "ERROR",
                 message: "Invalid email or password"
@@ -138,6 +139,7 @@ export const login = async (req, res) => {
             }
 
             req.session.userId = user.id;
+            req.session.credentialVersion = credentialVersion(user.password_hash);
 
 
             return res.status(200).json({

@@ -108,6 +108,10 @@ export default function AdminLogin() {
           </button>
         </form>
 
+        <p className="mt-5 text-sm leading-6 text-[#756B69]">
+          Forgot your password? Contact your website support to restore access.
+        </p>
+
         <a
           href="#home"
           className="mt-6 block text-center text-sm text-[#756B69] hover:text-[#B76473]"
