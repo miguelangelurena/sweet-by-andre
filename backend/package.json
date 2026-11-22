@@ -27,7 +27,8 @@
     "start:production": "node scripts/startProduction.js",
     "test:deployment": "node --test tests/production-deployment.unit.test.js tests/production-deployment.smoke.test.js",
     "test:docker": "node scripts/validateDocker.js",
-    "test:staging": "node --test tests/hosting.unit.test.js tests/staging-smoke.test.js"
+    "test:staging": "node --test tests/hosting.unit.test.js tests/staging-smoke.test.js",
+    "staging:check": "node scripts/checkStagingReadiness.js"
   },
   "keywords": [],
   "author": "",

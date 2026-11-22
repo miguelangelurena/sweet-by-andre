@@ -66,8 +66,9 @@ medición de Core Web Vitals ni una puntuación Lighthouse.
 
 1. Confirmar con la dueña el dominio escrito exactamente: el último indicado
    en Cloudflare es `sweetsbyandre.com`, con **sweets** en plural. No cambiarlo
-   al nombre singular por intuición. Confirmar también marca, contacto y área
-   de servicio; hay una diferencia pendiente entre las variantes del Gmail.
+   al nombre singular por intuición. El usuario confirmó el 16 de noviembre de
+   2026 que el correo de la dueña es `sweetbyandre@gmail.com`, con **sweet** en
+   singular. Confirmar todavía marca, demás datos de contacto y área de servicio.
 2. Completar despliegue de producción separado y comprobar HTTPS, seguridad,
    disponibilidad y aceptación. Mantener `SITE_INDEXABLE=false` hasta entonces.
 3. Establecer `FRONTEND_URL=https://sweetsbyandre.com` solo cuando ese sea el
@@ -152,8 +153,9 @@ npm run test:hosting --prefix frontend
 
 Las pruebas de backend requieren exclusivamente bases PostgreSQL locales de
 prueba. CI incluye los nuevos casos. El resultado publicado está en
-[STAGING_VALIDATION.md](STAGING_VALIDATION.md). Falta ejecutar el workflow en
-GitHub y validar producción. No se han medido posiciones ni tráfico todavía.
+[STAGING_VALIDATION.md](STAGING_VALIDATION.md). Se verificó que la versión
+`5e16ce7` aprobó [el workflow de GitHub](https://github.com/miguelangelurena/sweet-by-andre/actions/runs/43775904102).
+Falta validar producción. No se han medido posiciones ni tráfico todavía.
 
 Las URLs rastreables y el contenido servido inicialmente siguen las recomendaciones
 de [Google para aplicaciones JavaScript](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)

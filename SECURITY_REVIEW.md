@@ -136,7 +136,8 @@ se reutiliza `auth_rate_limits`, instalada por `db:auth` y los inicializadores.
    mínimos; comprobar inventario y rotación en cada cuenta, destinatarios de correo,
    restricciones de Google Routes y carpeta Cloudinary exclusiva. No se inspeccionó
    la configuración privada de esas cuentas.
-7. **Cambios y pruebas — medio:** ejecutar el workflow en GitHub, activar protección
+7. **Cambios y pruebas — medio:** la versión `5e16ce7` aprobó el workflow en
+   GitHub, verificado el 16 de noviembre de 2026. Queda activar protección
    de rama y revisión; analizar imagen del contenedor y fijar estrategia de parches.
    Repetir en staging login/logout/expiración, compra, webhook, reembolso de prueba,
    carga de imagen y administración de productos ocultos. El navegador local probado

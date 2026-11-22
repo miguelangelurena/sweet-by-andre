@@ -72,3 +72,32 @@ Las evidencias técnicas públicas y de navegador se guardan en
 Las 136 pruebas automatizadas del backend aprobaron, incluidas las nuevas
 comprobaciones de configuración ausente de imágenes. También aprobaron las
 pruebas locales de hosting y la compilación/lint de la versión SEO publicada.
+
+## Seguimiento del 16 de noviembre de 2026
+
+Se verificó que el workflow de GitHub aprobó la versión `5e16ce7` en las ramas
+[de seguridad](https://github.com/miguelangelurena/sweet-by-andre/actions/runs/43775904102)
+y [de staging](https://github.com/miguelangelurena/sweet-by-andre/actions/runs/43775904021).
+
+Para repetir las nueve comprobaciones públicas sin credenciales:
+
+```powershell
+npm run staging:check --prefix backend
+```
+
+El comando utiliza únicamente GET/HEAD públicos, no sigue redirecciones y no
+crea carritos, pedidos, pagos o mensajes. Comprueba salud, cabeceras, HTML,
+indexación, catálogo, precio de un producto, acceso anónimo, retornos de pago e
+imagen social. Un resultado correcto no certifica las funciones privadas ni
+la entrega de correos. No es un monitor continuo ni configura alertas.
+
+El chequeo nuevo fue probado con respuestas simuladas, fallos y redirecciones.
+La suite local completa aprobó 143 pruebas. La ejecución contra staging aprobó
+las nueve comprobaciones públicas. Una primera consulta encontró indisponibilidad;
+posteriormente el servicio respondió y se repitió el chequeo. La causa inicial
+no se verificó en los logs; no se atribuye como hecho al arranque en frío.
+
+Cada petición espera como máximo 45 segundos y el conjunto está limitado a dos
+minutos. Si el servicio está suspendido o arrancando, revisar Render y repetir
+cuando esté disponible. Para producción sigue pendiente una estrategia de
+alojamiento y monitoreo que no dependa de una comprobación manual.

@@ -4,17 +4,17 @@ Estado de esta revisión: 15 de noviembre de 2026. El entorno publicado conocido
 
 ## Separación de entornos
 
-| Recurso | Staging actual o configuración versionada | Producción por preparar |
-| --- | --- | --- |
-| Aplicación | `sweet-by-andre-staging.onrender.com`, Docker con `APP_ENV=staging` | Configuración y arranque preparados; servicio real pendiente |
-| Base | Base de staging; inicializador con catálogo demo | Inicializador sin demo y migraciones con checksum probados localmente; base real pendiente |
-| Datos | Pedidos y pagos de pruebas | Sin sesiones, pagos ni pedidos de sandbox importados |
-| Stripe | Claves test, webhook de staging, reembolsos limitados a sandbox | Cuenta habilitada, secretos y webhook live propios; revisar soporte de reembolsos reales |
-| Brevo | Código preparado; envío externo pendiente | Dominio autenticado, remitente confirmado y credenciales del negocio |
-| Fotos | Carpeta de staging en Cloudinary | Carpeta y credenciales con alcance definido para producción |
-| Dominio | URL de Render | `sweetsbyandre.com`, DNS y HTTPS verificados |
-| Copias | Herramientas locales y restauración probadas | Recuperación del proveedor, almacenamiento externo, programación y alertas |
-| Monitoreo | `/api/health` comprueba PostgreSQL | Monitor externo y responsable de recibir alertas |
+| Recurso    | Staging actual o configuración versionada                                                   | Producción por preparar                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Aplicación | `sweet-by-andre-staging.onrender.com`, Docker con `APP_ENV=staging`                         | Configuración y arranque preparados; servicio real pendiente                               |
+| Base       | Base de staging; inicializador con catálogo demo                                            | Inicializador sin demo y migraciones con checksum probados localmente; base real pendiente |
+| Datos      | Pedidos y pagos de pruebas                                                                  | Sin sesiones, pagos ni pedidos de sandbox importados                                       |
+| Stripe     | Claves test, webhook de staging, reembolsos limitados a sandbox                             | Cuenta habilitada, secretos y webhook live propios; revisar soporte de reembolsos reales   |
+| Brevo      | Código preparado; envío externo pendiente                                                   | Dominio autenticado, remitente confirmado y credenciales del negocio                       |
+| Fotos      | Integración preparada; faltan las credenciales de Cloudinary y repetir la carga/eliminación | Cuenta del negocio, carpeta y credenciales con alcance definido para producción            |
+| Dominio    | URL de Render                                                                               | `sweetsbyandre.com`, DNS y HTTPS verificados                                               |
+| Copias     | Herramientas locales y restauración probadas                                                | Recuperación del proveedor, almacenamiento externo, programación y alertas                 |
+| Monitoreo  | `/api/health` comprueba PostgreSQL                                                          | Monitor externo y responsable de recibir alertas                                           |
 
 No reutilizar `SESSION_SECRET`, `CSRF_SECRET`, contraseña administrativa, conexión de base o secretos de webhook entre staging y producción.
 
@@ -40,7 +40,16 @@ No reutilizar `SESSION_SECRET`, `CSRF_SECRET`, contraseña administrativa, conex
 
 ## Confirmaciones de la dueña
 
-- Correo correcto del negocio, titularidad de las cuentas y personas con acceso.
+La creación de su cuenta de fotos está delegada mediante la
+[guía para Andrea](docs/clienta/CREAR_CUENTA_CLOUDINARY.pdf). Puede confirmar el
+registro sin enviar contraseñas ni claves. Mientras responde, se puede continuar
+con revisiones de accesibilidad/móvil y preparación operativa. La configuración
+real de respaldos y alertas requiere el acceso al hosting y el plan aprobado,
+pero no depende de Cloudinary ni de Brevo.
+
+- Correo de la dueña confirmado por el usuario el 16 de noviembre de 2026:
+  `sweetbyandre@gmail.com`. Queda confirmar la titularidad efectiva de las cuentas,
+  sus verificaciones en cada proveedor y las personas con acceso.
 - Cuenta Stripe y datos del negocio habilitados para cobros reales.
 - Impuestos y reglas comerciales aplicables: el código calcula impuestos en cero; no se ha confirmado que corresponda al negocio.
 - Precios, tamaños, alérgenos, anticipación, capacidad de preparación, ZIP y tarifas de delivery, y horarios de pickup.

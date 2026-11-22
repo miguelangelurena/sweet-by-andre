@@ -75,6 +75,8 @@ La suite de checkout requiere una base separada llamada `sweet_by_andre_test` co
 - [Preparación para producción y entrega](PRODUCTION_READINESS.md).
 - [Configuración y arranque de producción](PRODUCTION_SETUP.md).
 - [Guía de uso para Andrea](GUIA_ANDREA.md).
+- [Instrucciones para que Andrea cree su cuenta de fotos (PDF)](docs/clienta/CREAR_CUENTA_CLOUDINARY.pdf).
+- [Mensaje breve para acompañar la guía](docs/clienta/MENSAJE_PARA_ANDREA.txt).
 - [Revisión del catálogo y precios pendientes de aprobación](CATALOG_REVIEW.md).
 - [Recuperación asistida del acceso administrativo](ADMIN_ACCESS_RECOVERY.md).
 - [Configuración de delivery](DELIVERY_SETUP.md).

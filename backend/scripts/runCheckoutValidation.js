@@ -12,6 +12,7 @@ const files = [
   "security-hardening.test.js",
   "security-hygiene.unit.test.js",
   "storefront-seo.test.js",
+  "staging-readiness.unit.test.js",
   "production-policy.unit.test.js",
   "production.http.test.js",
   "testInventoryReservation.js",
